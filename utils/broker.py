@@ -1,13 +1,14 @@
 import abc
-import datetime
 import time
+from datetime import datetime
 from enum import Enum
 from random import randint
 from typing import List
 
 import alpaca_trade_api as alpaca_api
-from alpaca_trade_api.entity import BarSet, Position, Account
+from alpaca_trade_api.entity import BarSet, Position, Account, Order
 from alpaca_trade_api.rest import APIError
+from requests import ReadTimeout
 
 from utils.notification import Notification
 
@@ -50,6 +51,10 @@ class Broker(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_all_orders(self):
+        pass
+
+    @abc.abstractmethod
     def cancel_open_orders(self):
         pass
 
@@ -67,11 +72,12 @@ class Broker(abc.ABC):
 
 
 class AlpacaClient(Broker):
-    MAX_RETRIES = 3
+    MAX_RETRIES = 5
 
     def __init__(self, notification: Notification):
         self.api = alpaca_api.REST()
         self.notification = notification
+        self.orders: List[Order] = []
 
     def get_portfolio(self) -> Account:
         return self.api.get_account()
@@ -80,25 +86,42 @@ class AlpacaClient(Broker):
         return self.api.get_last_trade(symbol).price
 
     # TODO : get_barset has been deprecated use get_bars instead
-    # alpaca.get_bars('AAPL', TimeFrame.Day, start='2021-09-12', end="2021-09-21").df
+    # self.api.get_bars('AAPL', TimeFrame.Day, start='2021-09-12', end="2021-09-21").df
     # However, this does not allow query for current date !!!
     def get_bars(self, symbol: str, timeframe: Timeframe, limit: int) -> BarSet:
         return self.api.get_barset(symbol, timeframe.value, limit).df[symbol]
 
-    def get_positions(self) -> List[Position]:
-        return self.api.list_positions()
+    def get_positions(self, trying=0) -> List[Position]:
+        try:
+            return self.api.list_positions()
+        except ReadTimeout as rex:
+            if trying < AlpacaClient.MAX_RETRIES:
+                time.sleep(3)
+                trying = trying + 1
+                self.get_positions(trying)
+                print("Trying ... {} time".format(trying))
+            else:
+                self.notification.notify("Failed to get positions ... {}".format(rex))
 
     def await_market_open(self):
-        self._await_market(False)
+        while not self.is_market_open():
+            print("{} waiting for market to open ... ".format(datetime.today().ctime()))
+            time.sleep(60)
+        print("{}: Market is open ! ".format(datetime.today().ctime()))
 
     def await_market_close(self):
-        self._await_market(True)
+        while self.is_market_open():
+            print("{} waiting for market to close ... ".format(datetime.today().ctime()))
+            time.sleep(60)
+        print("{}: Market is closed now ! ".format(datetime.today().ctime()))
 
     def is_tradable(self, symbol: str) -> bool:
         return self.api.get_asset(symbol).tradable
 
     def is_market_open(self) -> bool:
-        return self.api.get_clock().is_open
+        now = datetime.today()
+        military_time_now = (now.hour * 100) + now.minute
+        return now.weekday() < 5 and 630 <= military_time_now < 1300
 
     def market_buy(self, symbol, qty):
         return self._place_market_order(symbol, qty, "buy")
@@ -122,6 +145,8 @@ class AlpacaClient(Broker):
                                              order_class="bracket",
                                              take_profit={"limit_price": take_profit},
                                              stop_loss={"stop_price": stop_loss})
+                self.orders.append(resp)
+                self.get_all_orders()  # TODO: remove this from here. Run after trading stops
             except APIError as api_error:
                 self.notification.notify("Bracket order to {}: {} shares of {} could not be placed: {}"
                                          .format(side, qty, symbol, api_error))
@@ -130,6 +155,11 @@ class AlpacaClient(Broker):
                 # return resp
         else:
             print("Order to {} could not be placed ...Market is NOT open.. !".format(side))
+
+    def get_all_orders(self):
+        for order in self.orders:
+            print(f'fetching order for: {order.symbol}')
+            print(self.api.get_order(order.order_id, nested=True))
 
     def cancel_open_orders(self):
         if self.is_market_open():
@@ -152,31 +182,10 @@ class AlpacaClient(Broker):
 
             if trying < AlpacaClient.MAX_RETRIES:
                 trying = trying + 1
-                print("Closing all open positions ... Trying: {} time".format(trying))
+                print(f"Closing all open positions ... Trying: {trying} time")
                 self.close_all_positions(trying)
 
             else:
-                self.notification.notify("Could not close all positions ... ".format(trying))
-
+                self.notification.notify("Could not close all positions ... ")
         else:
             print("Positions cannot be closed ...Market is NOT open.. !")
-
-    def _await_market(self, wait_close):
-        event = "close" if wait_close else "open"
-        print(f"waiting for market {event}")
-
-        clock = self.api.get_clock()
-        target_time = clock.next_close if wait_close else clock.next_open
-        target_time = target_time.replace(tzinfo=datetime.timezone.utc).timestamp()
-
-        while clock.is_open == wait_close:
-            curr_time = clock.timestamp.replace(
-                tzinfo=datetime.timezone.utc
-            ).timestamp()
-            time_to_open = (target_time - curr_time) // 60
-
-            print(f"{time_to_open} minutes until market {event}")
-            time.sleep(300)
-            clock = self.api.get_clock()
-
-        print(f"market {event}")
