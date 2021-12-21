@@ -19,7 +19,9 @@ This project is highly customizable and is based on the following:
 ## How to run
 - Rename the `env.yaml.sample` to `env.yaml`
 - Populate the required values for Alpaca and Pushover
-- Run the following command `make clean run`
+- Run the following command `make clean run` # to be removed
+- Run `docker-compose up` to bring up Mysql8 instance
+- Run `uvicorn app:app --reload` to run FastAPI app
 
 ## Backtesting
 - Edit `backtest.py` to suit your needs

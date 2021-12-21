@@ -4,4 +4,12 @@ schedule==1.1.0
 PyYAML==5.4.1
 ulid-py==1.1.0
 requests~=2.26.0
-peewee~=3.14.4
+peewee==3.14.4
+matplotlib==3.4.3
+mplfinance==0.12.7a17
+uvicorn==0.16.0
+fastapi==0.70.1
+pymysql==1.0.2
+pydantic~=1.8.2
+pandas~=1.3.3
+numpy~=1.21.2

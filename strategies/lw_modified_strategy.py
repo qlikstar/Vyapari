@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import List
@@ -6,24 +5,18 @@ from typing import List
 import pandas
 
 from schedules.watchlist import WatchList
+from strategies.lw_breakout_strategy import LWStock
 from utils.broker import Broker, Timeframe
 
 
-@dataclass
-class LWStock:
-    symbol: str
-    yesterdays_change: float
-    moved: float
-    weightage: float
-    lw_lower_bound: float
-    lw_upper_bound: float
-    step: float
-
-
-class LWBreakout(object):
+class LWModified(object):
     """
         Larry Williams Breakout strategy :
         https://www.whselfinvest.com/en-lu/trading-platform/free-trading-strategies/tradingsystem/56-volatility-break-out-larry-williams-free
+        Will run this strategy only during the day at 8 AM
+        - Check the price changes until 8AM
+        - Determine the list of stocks to be traded
+        - Apply Larry Williams strategy
     """
 
     # TODO : Move the constants to Algo config
@@ -69,9 +62,9 @@ class LWBreakout(object):
                 trade_count = len(self.stocks_traded_today)
 
                 # long
-                if stock.lw_upper_bound < current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
+                if stock.lw_upper_bound < current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
                     print("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
+                    no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
                     stop_loss = current_market_price - (3 * stock.step)
                     take_profit = current_market_price + (6 * stock.step)
 
@@ -79,9 +72,9 @@ class LWBreakout(object):
                     self.stocks_traded_today.append(stock.symbol)
 
                 # short
-                if stock.lw_lower_bound > current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
+                if stock.lw_lower_bound > current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
                     print("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
+                    no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
                     stop_loss = current_market_price + (3 * stock.step)
                     take_profit = current_market_price - (6 * stock.step)
 
@@ -98,7 +91,7 @@ class LWBreakout(object):
             df = pandas.read_pickle(df_path)
         else:
             if self.broker.is_tradable(stock):
-                df = self.broker.get_bars(stock, Timeframe.DAY, limit=LWBreakout.BARSET_RECORDS)
+                df = self.broker.get_bars(stock, Timeframe.DAY, limit=LWModified.BARSET_RECORDS)
                 # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
                 # df['net_change'] = 1 + (df['pct_change'] / 100)
                 # df['cum_change'] = df['net_change'].cumprod()
@@ -124,32 +117,32 @@ class LWBreakout(object):
 
             stock_price = df.iloc[-1]['close']
             print(df.iloc[-1])
-            if stock_price > LWBreakout.STOCK_MAX_PRICE or stock_price < LWBreakout.STOCK_MIN_PRICE:
+            if stock_price > LWModified.STOCK_MAX_PRICE or stock_price < LWModified.STOCK_MIN_PRICE:
                 continue
 
             df = self._get_stock_df(stock)
-            price_open = df.iloc[-LWBreakout.MOVED_DAYS]['open']
+            price_open = df.iloc[-LWModified.MOVED_DAYS]['open']
             price_close = df.iloc[-1]['close']
             percent_change = round((price_close - price_open) / price_open * 100, 3)
             print('[{}/{}] -> {} moved {}% over the last {} days'.format(count + 1, len(from_watchlist),
-                                                                         stock, percent_change, LWBreakout.MOVED_DAYS))
+                                                                         stock, percent_change, LWModified.MOVED_DAYS))
 
-            yesterdays_record = df.iloc[-2]
-            y_stock_open = yesterdays_record['open']
-            y_stock_high = yesterdays_record['high']
-            y_stock_low = yesterdays_record['low']
-            y_stock_close = yesterdays_record['close']
+            todays_record = df.iloc[-1]
+            t_stock_open = todays_record['open']
+            t_stock_high = todays_record['high']
+            t_stock_low = todays_record['low']
+            y_stock_close = todays_record['close']
 
-            y_change = round((y_stock_close - y_stock_open) / y_stock_open * 100, 3)
-            y_range = y_stock_high - y_stock_low  # yesterday's range
-            step = round(y_range * 0.25, 3)
+            t_change = round((y_stock_close - t_stock_open) / t_stock_open * 100, 3)
+            t_range = t_stock_high - t_stock_low  # yesterday's range
+            step = round(t_range * 0.25, 3)
 
-            weightage = self._calculate_weightage(percent_change, y_change)
+            weightage = self._calculate_weightage(percent_change, t_change)
             lw_lower_bound = round(stock_price - step, 3)
             lw_upper_bound = round(stock_price + step, 3)
 
             stock_info.append(
-                LWStock(stock, y_change, percent_change, weightage, lw_lower_bound, lw_upper_bound, step))
+                LWStock(stock, t_change, percent_change, weightage, lw_lower_bound, lw_upper_bound, step))
 
         biggest_movers = sorted(stock_info, key=lambda i: i.weightage, reverse=True)
         stock_picks = self._select_best(biggest_movers)

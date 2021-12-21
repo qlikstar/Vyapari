@@ -35,7 +35,7 @@ class Broker(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_positions(self):
+    def get_positions(self) -> List[Position]:
         pass
 
     @abc.abstractmethod
@@ -146,7 +146,6 @@ class AlpacaClient(Broker):
                                              take_profit={"limit_price": take_profit},
                                              stop_loss={"stop_price": stop_loss})
                 self.orders.append(resp)
-                self.get_all_orders()  # TODO: remove this from here. Run after trading stops
             except APIError as api_error:
                 self.notification.notify("Bracket order to {}: {} shares of {} could not be placed: {}"
                                          .format(side, qty, symbol, api_error))
@@ -159,7 +158,7 @@ class AlpacaClient(Broker):
     def get_all_orders(self):
         for order in self.orders:
             print(f'fetching order for: {order.symbol}')
-            print(self.api.get_order(order.order_id, nested=True))
+            print(self.api.get_order_by_client_order_id(order.client_order_id))
 
     def cancel_open_orders(self):
         if self.is_market_open():
@@ -172,6 +171,7 @@ class AlpacaClient(Broker):
 
     def close_all_positions(self, trying=0):
         if self.is_market_open():
+            self.get_all_orders()
             self.cancel_open_orders()
             self.api.close_all_positions()
 

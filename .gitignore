@@ -133,5 +133,6 @@ dmypy.json
 
 # Project
 /conf/env.yaml
-/db/*
+/db/mysql/*
 /data/
+/ignored/
