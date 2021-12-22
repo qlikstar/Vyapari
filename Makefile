@@ -1,5 +1,5 @@
 run: venv
-	source venv/bin/activate && python3 main.py
+	source venv/bin/activate && uvicorn app:app --reload
 
 venv:
 	test -d venv || python3 -m venv venv
