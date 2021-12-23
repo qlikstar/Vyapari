@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List
 
 import pandas
+from kink import di
 
 from schedules.watchlist import WatchList
 from strategies.lw_breakout_strategy import LWStock
@@ -28,10 +29,10 @@ class LWModified(object):
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
 
-    def __init__(self, broker: Broker):
+    def __init__(self):
         self.name = "LWBreakout"
         self.watchlist = WatchList()
-        self.broker = broker
+        self.broker = di[Broker]
 
         self.todays_stock_picks: List[LWStock] = []
         self.stocks_traded_today: List[str] = []

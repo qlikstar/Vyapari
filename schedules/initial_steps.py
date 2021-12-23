@@ -1,13 +1,17 @@
-from datetime import datetime
+import logging
+
+from kink import di
 
 from utils.broker import Broker
 from utils.notification import Notification
 
+logger = logging.getLogger(__name__)
+
 
 class InitialSteps(object):
-    def __init__(self, broker: Broker, notification: Notification):  # db, broker
-        self.broker = broker
-        self.notification = notification
+    def __init__(self):  # db, broker
+        self.broker = di[Broker]
+        self.notification = di[Notification]
         self.show_configuration()
 
     def show_portfolio_details(self):
@@ -17,4 +21,4 @@ class InitialSteps(object):
     @staticmethod
     def show_configuration():
         # TODO: Implement this
-        print("{}: Starting to run ... ".format(datetime.now()))
+        logger.info("Running: initial steps")

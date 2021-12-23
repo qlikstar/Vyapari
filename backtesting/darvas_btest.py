@@ -1,4 +1,4 @@
-from pathlib import Path
+import logging
 
 import pandas as pd
 from alpaca_trade_api.entity import BarSet
@@ -8,6 +8,8 @@ from strategies.strategy import Strategy
 from utils.broker import AlpacaClient, Timeframe
 from utils.notification import NoOpNotification
 from utils.util import load_env_variables
+
+logger = logging.getLogger(__name__)
 
 
 class DarvasBox(object):
@@ -29,17 +31,17 @@ class DarvasBox(object):
             df_path.parent.mkdir(parents=True, exist_ok=True)
 
             if self.start_fresh or not df_path.exists():
-                print("Downloading data for {} for {} days".format(symbol, self.backtest_days))
+                logger.info("Downloading data for {} for {} days".format(symbol, self.backtest_days))
                 try:
                     if self.broker.is_tradable(symbol):
                         df: BarSet = self.broker.get_bars(symbol, Timeframe.DAY, limit=self.backtest_days)
                         df.to_pickle(df_path)
                     else:
-                        print("{} is not tradable with broker".format(symbol))
+                        logger.warning("{} is not tradable with broker".format(symbol))
                 except Exception:
                     pass
             else:
-                print("Data already exists for {}".format(symbol))
+                logger.warning("Data already exists for {}".format(symbol))
 
     def _calculate_profit_per_symbol(self, symbol):
         df_path = Strategy.get_backtest_file_path(symbol)
@@ -48,7 +50,7 @@ class DarvasBox(object):
             try:
                 df = pd.read_pickle(df_path)
             except Exception as ex:
-                print("exception occurred while reading pickle file {}: {}".format(df_path.name, ex))
+                logger.warning("exception occurred while reading pickle file {}: {}".format(df_path.name, ex))
 
             # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 2).shift(1).fillna(0.0)
             # df['decision'] = df['pct_change'] < DarvasBox.MIN_PERCENT_CHANGE

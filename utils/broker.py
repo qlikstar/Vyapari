@@ -8,6 +8,7 @@ from typing import List
 import alpaca_trade_api as alpaca_api
 from alpaca_trade_api.entity import BarSet, Position, Account, Order
 from alpaca_trade_api.rest import APIError
+from kink import di, inject
 from requests import ReadTimeout
 
 from utils.notification import Notification
@@ -71,13 +72,15 @@ class Broker(abc.ABC):
         pass
 
 
+@inject(alias=Broker)
 class AlpacaClient(Broker):
     MAX_RETRIES = 5
 
-    def __init__(self, notification: Notification):
+    def __init__(self):
         self.api = alpaca_api.REST()
-        self.notification = notification
+        self.notification = di[Notification]
         self.orders: List[Order] = []
+        assert self.get_portfolio() is not None
 
     def get_portfolio(self) -> Account:
         return self.api.get_account()

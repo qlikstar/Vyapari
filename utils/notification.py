@@ -5,6 +5,7 @@ import time
 
 import requests
 from colorama import Fore, Style
+from kink import inject
 
 
 class Notification(object):
@@ -18,6 +19,7 @@ class NoOpNotification(Notification):
         print("Notifying: {}".format(message))
 
 
+@inject(alias=Notification)
 class Pushover(Notification):
     def __init__(self):
         self.userkey = os.environ.get('PUSHOVER_API_KEY')

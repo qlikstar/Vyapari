@@ -1,11 +1,12 @@
 from colorama import Fore, Style
+from kink import di
 
 from utils.broker import Broker
 
 
 class Intermediate(object):
-    def __init__(self, broker: Broker):  # db, broker
-        self.broker = broker
+    def __init__(self):  # db, broker
+        self.broker = di[Broker]
 
     def run_stats(self):
         total_unrealized_pl = 0
