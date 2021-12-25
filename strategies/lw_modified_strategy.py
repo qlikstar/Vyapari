@@ -1,3 +1,4 @@
+import time
 from datetime import date
 from pathlib import Path
 from typing import List
@@ -46,10 +47,15 @@ class LWModified(object):
         self.broker.await_market_open()
         self.broker.close_all_positions()
 
-    def run(self):
+    def run(self, sleep_in_min, until):
 
+        while time.time() < until:
+            self._run_singular()
+            time.sleep(sleep_in_min * 60)
+
+    def _run_singular(self):
         if not self.broker.is_market_open():
-            print("Market not open !")
+            print("Market is not open !")
             return
 
         # First check if stock not already purchased

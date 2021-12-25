@@ -1,16 +1,14 @@
-import datetime
-from pathlib import Path
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.dates as mpl_dates
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from alpaca_trade_api.entity import BarSet
-from strategies.strategy import Strategy
-from utils.broker import AlpacaClient, Timeframe
-from utils.notification import NoOpNotification
-from utils.util import load_env_variables
+from kink import di
 from mplfinance.original_flavor import candlestick_ohlc
+
+from strategies.strategy import Strategy
+from utils.broker import Timeframe, Broker
+from utils.util import load_env_variables
 
 """
     Resistance and Support calculation:
@@ -25,7 +23,7 @@ class Resistance(object):
         load_env_variables()
         self.symbol = symbol
         self.lookback_days = lookback_days
-        self.broker = AlpacaClient(NoOpNotification())
+        self.broker = di[Broker]
         self.results = {}
         self.download_data(symbol)
 

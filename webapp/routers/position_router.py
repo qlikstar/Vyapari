@@ -25,7 +25,7 @@ class PositionModel(BaseModel):
         getter_dict = PeeweeGetterDict
 
 
-router_position = APIRouter(
+route = APIRouter(
     prefix="/position",
     tags=["position"]
 )
@@ -33,13 +33,13 @@ router_position = APIRouter(
 position_service = PositionService(di[Broker])
 
 
-@router_position.get("/", response_model=List[PositionModel],
-                     summary="List of positions",
-                     description="Returns all positions")
+@route.get("/", response_model=List[PositionModel],
+           summary="List of positions",
+           description="Returns all positions")
 async def get_all_positions():
     return position_service.update_and_get_current_positions()
 
 
-@router_position.get("/id/{sym}", response_model=PositionModel, summary="Returns a single position")
+@route.get("/id/{sym}", response_model=PositionModel, summary="Returns a single position")
 async def view(sym: str):
     return position_service.get_position(sym)

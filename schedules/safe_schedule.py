@@ -2,11 +2,13 @@ import datetime
 import logging
 from traceback import format_exc
 
+from kink import inject
 from schedule import Scheduler
 
 logger = logging.getLogger('schedule')
 
 
+@inject
 class SafeScheduler(Scheduler):
     """
     An implementation of Scheduler that catches jobs that fail, logs their

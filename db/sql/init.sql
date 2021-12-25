@@ -106,15 +106,15 @@ DROP TABLE IF EXISTS `position`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `position` (
   `run_date` date NOT NULL,
-  `symbol` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `side` varchar(4) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `symbol` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `side` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `qty` int NOT NULL,
   `entry_price` decimal(10,2) NOT NULL,
   `market_price` decimal(10,2) NOT NULL,
   `lastday_price` decimal(10,2) DEFAULT NULL,
   `created_at` timestamp NOT NULL,
   `updated_at` timestamp NOT NULL,
-  PRIMARY KEY (`run_date`, `symbol`, `side`)
+  PRIMARY KEY (`run_date`,`symbol`,`side`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -124,7 +124,7 @@ CREATE TABLE `position` (
 
 LOCK TABLES `position` WRITE;
 /*!40000 ALTER TABLE `position` DISABLE KEYS */;
-INSERT INTO `position` VALUES (1,'2022-01-01','AAPL','buy',10,120.00,121.20,122.00,'2021-12-21 06:26:26','2021-12-21 06:26:26');
+INSERT INTO `position` VALUES ('2021-12-22','AAPL','long',10,170.13,175.98,172.99,'2021-12-22 10:51:56','2021-12-22 20:45:25'),('2021-12-22','CNK','long',248,20.19,17.35,17.23,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','ERF','long',529,9.47,9.91,9.74,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','EZPW','long',677,7.40,7.09,7.19,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','GEL','long',440,11.37,10.34,10.02,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','IGT','long',168,29.80,27.91,27.85,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','MSFT','long',1,327.08,333.75,327.29,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','OXY','long',142,35.16,28.93,28.60,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','RFP','long',374,13.41,13.28,12.85,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','TDW','long',391,12.79,10.71,10.74,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','TWLO','long',10,266.95,268.77,276.92,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','VET','long',437,11.44,12.51,11.71,'2021-12-22 10:51:55','2021-12-22 20:45:25');
 /*!40000 ALTER TABLE `position` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -137,4 +137,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-12-22  2:52:17
+-- Dump completed on 2021-12-22 21:41:17

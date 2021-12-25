@@ -1,12 +1,10 @@
-import datetime
-from pathlib import Path
-
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 from alpaca_trade_api.entity import BarSet
+from kink import di
+
 from strategies.strategy import Strategy
-from utils.broker import AlpacaClient, Timeframe
-from utils.notification import NoOpNotification
+from utils.broker import Timeframe, Broker
 from utils.util import load_env_variables
 
 
@@ -17,7 +15,7 @@ class DarvasBox(object):
         load_env_variables()
         self.symbol = symbol
         self.lookback_days = lookback_days
-        self.broker = AlpacaClient(NoOpNotification())
+        self.broker = di[Broker]
         self.results = {}
         self.download_data(symbol)
 

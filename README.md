@@ -20,7 +20,11 @@ This project is highly customizable and is based on the following:
 - Rename the `env.yaml.sample` to `env.yaml`
 - Populate the required values for Alpaca and Pushover
 - Run `docker-compose up` to bring up Mysql8 instance
-- Run the following command `make clean run`
+- Run the following command `make clean install run`
+  
+## Setup Webhook for Telegram
+- Setup webhook locally: https://github.com/azimjohn/jprq-python-client
+- Expose port `8000` locally to receive Telegram requests: `jprq http 8000 -s=<subdomain>`
 
 ## Backtesting
 - Edit `backtest.py` to suit your needs
