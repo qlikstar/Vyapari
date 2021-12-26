@@ -11,7 +11,7 @@ from alpaca_trade_api.rest import APIError
 from kink import di, inject
 from requests import ReadTimeout
 
-from utils.notification import Notification
+from services.notification_service import Notification
 
 
 class Timeframe(Enum):

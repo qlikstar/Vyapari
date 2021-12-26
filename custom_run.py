@@ -1,7 +1,7 @@
 from kink import di
 
 from customscripts.Resistance import Resistance
-from utils.notification import NoOpNotification, Notification
+from services.notification_service import NoOpNotification, Notification
 
 di[Notification] = NoOpNotification()
 

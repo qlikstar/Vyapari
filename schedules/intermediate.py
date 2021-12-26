@@ -1,13 +1,11 @@
 import time
+from datetime import datetime
 
 from colorama import Fore, Style
 from kink import di
 
-from utils.broker import Broker
-from webapp.services.position_service import PositionService
-
-UNTIL_NEXT_TIME_IN_MINS = 390
-SLEEP_IN_MINS = 10
+from services.broker_service import Broker
+from services.position_service import PositionService
 
 
 class Intermediate(object):
@@ -16,12 +14,11 @@ class Intermediate(object):
         self.broker = di[Broker]
         self.position_service = di[PositionService]
 
-    def run_stats(self):
+    def run_stats(self, sleep_in_min, until):
 
-        time_end = time.time() + (UNTIL_NEXT_TIME_IN_MINS * 60)
-        while time.time() < time_end:
+        while datetime.time(datetime.today()) < until:
             self._run_stats_singular()
-            time.sleep(SLEEP_IN_MINS * 60)
+            time.sleep(sleep_in_min * 60)
 
     def _run_stats_singular(self):
         total_unrealized_pl = 0

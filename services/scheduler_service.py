@@ -14,8 +14,11 @@ logger = logging.getLogger(__name__)
 START_TRADING = "06:50"
 STOP_TRADING = "12:30"
 MARKET_CLOSE = "13:00"
-SLEEP_BETWEEN_RUNS_IN_MIN = 1
-RUN_UNTIL = datetime.strptime(STOP_TRADING, '%H:%M').time()
+SLEEP_RUN_STRATEGY = 1
+SLEEP_SHOW_CURRENT = 10
+
+UNTIL_STOP_TRADING = datetime.strptime(STOP_TRADING, '%H:%M').time()
+UNTIL_MARKET_CLOSE = datetime.strptime(MARKET_CLOSE, '%H:%M').time()
 DAILY = "DAILY"
 HEARTBEAT = "HEARTBEAT"
 
@@ -29,12 +32,14 @@ class SchedulerService(object):
     def start(self, start_trading=START_TRADING):
         logger.info("Scheduling jobs... ")
 
-        # if self._is_within_valid_duration():
-        #     self._run_jobs_once()
+        if self._is_within_valid_duration():
+            self._run_jobs_once()
 
         self.schedule.every().day.at(start_trading).do(self.app_config.run_strategy,
-                                                       SLEEP_BETWEEN_RUNS_IN_MIN, RUN_UNTIL).tag(DAILY)
-        self.schedule.every().day.at(start_trading).do(self.app_config.show_current_holdings).tag(DAILY)
+                                                       SLEEP_RUN_STRATEGY, UNTIL_STOP_TRADING).tag(DAILY)
+        self.schedule.every().day.at(start_trading).do(self.app_config.show_current_holdings,
+                                                       SLEEP_SHOW_CURRENT, UNTIL_MARKET_CLOSE).tag(DAILY)
+
         self.schedule.every().day.at(STOP_TRADING).do(self.app_config.run_before_market_close).tag(DAILY)
         self.schedule.every().day.at(MARKET_CLOSE).do(self.app_config.run_after_market_close).tag(DAILY)
 
@@ -55,10 +60,7 @@ class SchedulerService(object):
 
     def cancel_all(self):
         self.cancel()
-        for job in self.schedule.get_jobs(HEARTBEAT):
-            logger.info(f"Tag:{HEARTBEAT} \tCancelling job: {job}")
-            self.schedule.cancel_job(job)
-        self.schedule.clear(HEARTBEAT)
+        self.schedule.clear()
 
     def restart(self):
         logger.info("Restarting scheduler service... ")
@@ -67,11 +69,14 @@ class SchedulerService(object):
         asyncio.get_running_loop().run_in_executor(None, self.start)
 
     def _run_jobs_once(self):
-        now_plus_30 = datetime.now() + timedelta(seconds=30)
+        now_plus_30 = datetime.now() + timedelta(seconds=61)
         at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
+        logger.info(f"Run once jobs start at: {at_time}")
+
         self.schedule.every().day.at(at_time).do(self.app_config.run_strategy,
-                                                 SLEEP_BETWEEN_RUNS_IN_MIN, RUN_UNTIL).tag(DAILY)
-        self.schedule.every().day.at(at_time).do(self.app_config.show_current_holdings).tag(DAILY)
+                                                 SLEEP_RUN_STRATEGY, UNTIL_STOP_TRADING).tag(DAILY)
+        self.schedule.every().day.at(at_time).do(self.app_config.show_current_holdings,
+                                                 SLEEP_SHOW_CURRENT, UNTIL_MARKET_CLOSE).tag(DAILY)
         return self.schedule.cancel_job
 
     @staticmethod

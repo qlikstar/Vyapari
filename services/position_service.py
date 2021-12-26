@@ -3,7 +3,7 @@ from datetime import datetime
 from kink import inject
 
 from dao.position import list_todays_positions, upsert_position, get_position
-from utils.broker import Broker
+from services.broker_service import Broker
 
 
 @inject

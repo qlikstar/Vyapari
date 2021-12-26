@@ -6,7 +6,7 @@ from typing import List
 import pandas
 
 from schedules.watchlist import WatchList
-from utils.broker import Broker, Timeframe
+from services.broker_service import Broker, Timeframe
 
 
 @dataclass

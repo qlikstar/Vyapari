@@ -6,7 +6,7 @@ from kink import di
 
 from app_config import AppConfig
 from dao.base import conn
-from webapp.services.scheduler_service import SchedulerService
+from services.scheduler_service import SchedulerService
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ async def shutdown():
     logger.info("Exited")
 
 
-from webapp.routers import position_router, scheduler_router, callback_router
+from webapp import callback_router, position_router, scheduler_router
 
 app.include_router(position_router.route)
 app.include_router(scheduler_router.route)

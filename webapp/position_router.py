@@ -5,9 +5,9 @@ from fastapi import APIRouter
 from kink import di
 from pydantic import BaseModel
 
-from utils.broker import Broker
-from webapp.routers import PeeweeGetterDict
-from webapp.services.position_service import PositionService
+from services.broker_service import Broker
+from services.position_service import PositionService
+from webapp import PeeweeGetterDict
 
 
 class PositionModel(BaseModel):

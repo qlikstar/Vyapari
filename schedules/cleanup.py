@@ -1,6 +1,6 @@
 from kink import di
 
-from utils.broker import Broker
+from services.broker_service import Broker
 
 
 class CleanUp(object):

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from kink import di
 
-from webapp.services.scheduler_service import SchedulerService
+from services.scheduler_service import SchedulerService
 
 route = APIRouter(
     prefix="/scheduler",

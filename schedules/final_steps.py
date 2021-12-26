@@ -2,8 +2,8 @@ import logging
 
 from kink import di
 
-from utils.broker import Broker
-from utils.notification import Notification
+from services.broker_service import Broker
+from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)
 

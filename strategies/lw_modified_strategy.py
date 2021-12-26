@@ -1,5 +1,5 @@
 import time
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import List
 
@@ -8,7 +8,7 @@ from kink import di
 
 from schedules.watchlist import WatchList
 from strategies.lw_breakout_strategy import LWStock
-from utils.broker import Broker, Timeframe
+from services.broker_service import Broker, Timeframe
 
 
 class LWModified(object):
@@ -49,7 +49,7 @@ class LWModified(object):
 
     def run(self, sleep_in_min, until):
 
-        while time.time() < until:
+        while datetime.time(datetime.today()) < until:
             self._run_singular()
             time.sleep(sleep_in_min * 60)
 

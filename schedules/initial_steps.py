@@ -2,8 +2,8 @@ import logging
 
 from kink import di
 
-from utils.broker import Broker
-from utils.notification import Notification
+from services.broker_service import Broker
+from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class InitialSteps(object):
 
     def show_portfolio_details(self):
         portfolio = self.broker.get_portfolio()
-        self.notification.notify("Initial portfolio value: ${:.2f}".format(float(portfolio.portfolio_value)))
+        self.notification.notify(f"Initial portfolio value: ${float(portfolio.portfolio_value)}")
 
     @staticmethod
     def show_configuration():
