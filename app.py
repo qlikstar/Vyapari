@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title='Vyapari', description='APIs for Vyapari', version='0.0.1-SNAPSHOT')
 
 app_config = AppConfig()
-loop = asyncio.get_running_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 scheduler_service = SchedulerService()
 di[SchedulerService] = scheduler_service

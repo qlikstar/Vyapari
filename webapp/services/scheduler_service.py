@@ -64,8 +64,7 @@ class SchedulerService(object):
         logger.info("Restarting scheduler service... ")
         self.cancel()
 
-        loop = asyncio.get_running_loop()
-        loop.run_in_executor(None, self.start)
+        asyncio.get_running_loop().run_in_executor(None, self.start)
 
     def _run_jobs_once(self):
         now_plus_30 = datetime.now() + timedelta(seconds=30)
