@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-import uvicorn
 from fastapi import FastAPI
 from kink import di
 
@@ -42,8 +41,12 @@ async def shutdown():
         conn.close()
 
     logger.info("Closing event loop...")
-    if not loop.is_closed():
-        loop.close()
+    while loop.is_running():
+        try:
+            loop.close()
+        except RuntimeError as e:
+            logger.warning(f"Exception: {e}")
+    logger.info("Exited")
 
 
 from webapp.routers import position_router, scheduler_router, callback_router
@@ -52,5 +55,5 @@ app.include_router(position_router.route)
 app.include_router(scheduler_router.route)
 app.include_router(callback_router.route)
 
-if __name__ == "__main__":
-    uvicorn.run(host="0.0.0.0", port=8000)
+# if __name__ == "__main__":
+#     uvicorn.run(host="0.0.0.0", port=8000)

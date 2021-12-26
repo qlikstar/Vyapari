@@ -7,6 +7,7 @@ from utils.notification import Notification
 
 logger = logging.getLogger(__name__)
 
+
 class FinalSteps(object):
 
     def __init__(self):  # db, broker
