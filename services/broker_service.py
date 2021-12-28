@@ -1,4 +1,5 @@
 import abc
+import logging
 import time
 from datetime import datetime
 from enum import Enum
@@ -6,12 +7,14 @@ from random import randint
 from typing import List
 
 import alpaca_trade_api as alpaca_api
-from alpaca_trade_api.entity import BarSet, Position, Account, Order
+from alpaca_trade_api.entity import BarSet, Position, Account
 from alpaca_trade_api.rest import APIError
 from kink import di, inject
 from requests import ReadTimeout
 
 from services.notification_service import Notification
+
+logger = logging.getLogger(__name__)
 
 
 class Timeframe(Enum):
@@ -52,7 +55,15 @@ class Broker(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_order(self, order_id: str):
+        pass
+
+    @abc.abstractmethod
     def get_all_orders(self):
+        pass
+
+    @abc.abstractmethod
+    def get_open_orders(self):
         pass
 
     @abc.abstractmethod
@@ -79,7 +90,6 @@ class AlpacaClient(Broker):
     def __init__(self):
         self.api = alpaca_api.REST()
         self.notification = di[Notification]
-        self.orders: List[Order] = []
         assert self.get_portfolio() is not None
 
     def get_portfolio(self) -> Account:
@@ -102,21 +112,21 @@ class AlpacaClient(Broker):
                 time.sleep(3)
                 trying = trying + 1
                 self.get_positions(trying)
-                print("Trying ... {} time".format(trying))
+                logger.info("Trying ... {} time".format(trying))
             else:
-                self.notification.notify("Failed to get positions ... {}".format(rex))
+                self.notification.err_notify(f"Failed to get positions ... {rex}")
 
     def await_market_open(self):
         while not self.is_market_open():
-            print("{} waiting for market to open ... ".format(datetime.today().ctime()))
+            logger.info("{} waiting for market to open ... ".format(datetime.today().ctime()))
             time.sleep(60)
-        print("{}: Market is open ! ".format(datetime.today().ctime()))
+        logger.info("{}: Market is open ! ".format(datetime.today().ctime()))
 
     def await_market_close(self):
         while self.is_market_open():
-            print("{} waiting for market to close ... ".format(datetime.today().ctime()))
+            logger.info("{} waiting for market to close ... ".format(datetime.today().ctime()))
             time.sleep(60)
-        print("{}: Market is closed now ! ".format(datetime.today().ctime()))
+        logger.info("{}: Market is closed now ! ".format(datetime.today().ctime()))
 
     def is_tradable(self, symbol: str) -> bool:
         return self.api.get_asset(symbol).tradable
@@ -134,61 +144,67 @@ class AlpacaClient(Broker):
 
     def _place_market_order(self, symbol, qty, side):
         if self.is_market_open():
-            resp = self.api.submit_order(symbol, qty, side, "market", "day")
-            print("Order submitted to {}: {} : {}".format(side, symbol, qty))
-            return resp
+            try:
+                logger.info("Placing order to {}: {} : {}".format(side, symbol, qty))
+                return self.api.submit_order(symbol, qty, side, "market", "day")
+            except APIError as api_error:
+                self.notification.err_notify(f"Order to {side}: {qty} shares of {symbol} "
+                                             f"could not be placed: {api_error}")
         else:
-            print("{} Order could not be placed ...Market is NOT open.. !".format(side))
+            logger.info(f"{side} Order could not be placed ...Market is NOT open.. !")
 
     def place_bracket_order(self, symbol, side, qty, stop_loss, take_profit):
-        print("Placing bracket order to {}: {} shares of {} -> ".format(side, qty, symbol))
+        logger.info("Placing bracket order to {}: {} shares of {} -> ".format(side, qty, symbol))
         if self.is_market_open():
             try:
-                resp = self.api.submit_order(symbol, qty, side, "market", "day",
-                                             order_class="bracket",
-                                             take_profit={"limit_price": take_profit},
-                                             stop_loss={"stop_price": stop_loss})
-                self.orders.append(resp)
-            except APIError as api_error:
-                self.notification.notify("Bracket order to {}: {} shares of {} could not be placed: {}"
-                                         .format(side, qty, symbol, api_error))
-            else:
+                order = self.api.submit_order(symbol, qty, side, "market", "day",
+                                              order_class="bracket",
+                                              take_profit={"limit_price": take_profit},
+                                              stop_loss={"stop_price": stop_loss})
+
                 self.notification.notify("Bracket order to {}: {} shares of {} placed".format(side, qty, symbol))
-                # return resp
+                return order
+            except APIError as api_error:
+                self.notification.err_notify(f"Bracket order to {side}: {qty} shares of {symbol} "
+                                             f"could not be placed: {api_error}")
+
         else:
-            print("Order to {} could not be placed ...Market is NOT open.. !".format(side))
+            logger.info("Order to {} could not be placed ...Market is NOT open.. !".format(side))
+
+    def get_order(self, order_id: str):
+        return self.api.get_order(order_id)
 
     def get_all_orders(self):
-        for order in self.orders:
-            print(f'fetching order for: {order.symbol}')
-            print(self.api.get_order_by_client_order_id(order.client_order_id))
+        return self.api.list_orders(status='all')
+
+    def get_open_orders(self):
+        return self.api.list_orders(status='open')
 
     def cancel_open_orders(self):
         if self.is_market_open():
-            print("Closing all open orders ...")
+            logger.info("Closing all open orders ...")
             self.api.cancel_all_orders()
             time.sleep(randint(1, 3))
 
         else:
-            print("Could not cancel open orders ...Market is NOT open.. !")
+            logger.info("Could not cancel open orders ...Market is NOT open.. !")
 
     def close_all_positions(self, trying=0):
         if self.is_market_open():
-            self.get_all_orders()
             self.cancel_open_orders()
             self.api.close_all_positions()
 
             time.sleep(randint(3, 7))
             if len(self.get_positions()) == 0:
-                print("Closed all open positions ...")
+                logger.info("Closed all open positions ...")
                 return
 
             if trying < AlpacaClient.MAX_RETRIES:
                 trying = trying + 1
-                print(f"Closing all open positions ... Trying: {trying} time")
+                logger.info(f"Closing all open positions ... Trying: {trying} time")
                 self.close_all_positions(trying)
 
             else:
                 self.notification.notify("Could not close all positions ... ")
         else:
-            print("Positions cannot be closed ...Market is NOT open.. !")
+            logger.info("Positions cannot be closed ...Market is NOT open.. !")

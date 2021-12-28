@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -7,9 +8,11 @@ import pandas
 from kink import di
 
 from schedules.watchlist import WatchList
-from strategies.lw_breakout_strategy import LWStock
 from services.broker_service import Broker, Timeframe
+from services.order_service import OrderService
+from strategies.lw_breakout_strategy import LWStock
 
+logger = logging.getLogger(__name__)
 
 class LWModified(object):
     """
@@ -34,6 +37,7 @@ class LWModified(object):
         self.name = "LWBreakout"
         self.watchlist = WatchList()
         self.broker = di[Broker]
+        self.order_service = di[OrderService]
 
         self.todays_stock_picks: List[LWStock] = []
         self.stocks_traded_today: List[str] = []
@@ -68,6 +72,7 @@ class LWModified(object):
                 current_market_price = self.broker.get_current_price(stock.symbol)
                 trade_count = len(self.stocks_traded_today)
 
+                order = None
                 # long
                 if stock.lw_upper_bound < current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
                     print("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
@@ -75,7 +80,7 @@ class LWModified(object):
                     stop_loss = current_market_price - (3 * stock.step)
                     take_profit = current_market_price + (6 * stock.step)
 
-                    self.broker.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
+                    order = self.broker.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
                     self.stocks_traded_today.append(stock.symbol)
 
                 # short
@@ -85,8 +90,14 @@ class LWModified(object):
                     stop_loss = current_market_price + (3 * stock.step)
                     take_profit = current_market_price - (6 * stock.step)
 
-                    self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
+                    order = self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
                     self.stocks_traded_today.append(stock.symbol)
+
+                try:
+                    self.order_service.save_order(order)
+                except Exception as ex:
+                    logger.error(f'Exception: Bracket order could NOT be placed for: {stock.symbol}')
+
 
     def _get_stock_df(self, stock):
         data_folder = "data"

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from kink import inject
+from kink import inject, di
 
 from dao.position import list_todays_positions, upsert_position, get_position
 from services.broker_service import Broker
@@ -9,8 +9,8 @@ from services.broker_service import Broker
 @inject
 class PositionService(object):
 
-    def __init__(self, broker: Broker):
-        self.broker: Broker = broker
+    def __init__(self):
+        self.broker: Broker = di[Broker]
 
     def update_current_positions(self):
         positions = self.broker.get_positions()

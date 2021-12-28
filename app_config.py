@@ -7,11 +7,12 @@ from schedules.final_steps import FinalSteps
 from schedules.initial_steps import InitialSteps
 from schedules.intermediate import Intermediate
 from schedules.watchlist import WatchList
-from strategies.lw_modified_strategy import LWModified
 from services.broker_service import AlpacaClient
 from services.notification_service import Pushover
-from services.util import load_env_variables
+from services.order_service import OrderService
 from services.position_service import PositionService
+from services.util import load_env_variables
+from strategies.lw_modified_strategy import LWModified
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class AppConfig(object):
         self.notification = Pushover()
         self.broker = AlpacaClient()
         self.position_service = PositionService()
+        self.order_service = OrderService()
 
         self.watchlist = WatchList()
         self.initial_steps = InitialSteps()
@@ -43,7 +45,7 @@ class AppConfig(object):
 
     def show_current_holdings(self, sleep_between_runs_in_min, until):
         if self.broker.is_market_open():
-            return self.intermediate.run_stats(sleep_between_runs_in_min, until)
+            return self.intermediate.run(sleep_between_runs_in_min, until)
 
     def run_before_market_close(self):
         self.cleanup.close_all_positions()

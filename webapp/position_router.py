@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from kink import di
 from pydantic import BaseModel
 
-from services.broker_service import Broker
 from services.position_service import PositionService
 from webapp import PeeweeGetterDict
 
@@ -30,7 +29,7 @@ route = APIRouter(
     tags=["position"]
 )
 
-position_service = PositionService(di[Broker])
+position_service = di[PositionService]
 
 
 @route.get("/", response_model=List[PositionModel],

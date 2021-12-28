@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from peewee import *
 
 from .base import BaseModel
@@ -17,8 +19,8 @@ class Order(BaseModel):
     trail_price = DecimalField(10, 2)
     initial_stop_price = DecimalField(10, 2)
     updated_stop_price = DecimalField(10, 2)
-    failed_at = TimestampField()
-    filled_at = TimestampField()
+    failed_at = DateTimeField()
+    filled_at = DateTimeField()
     filled_avg_price = DecimalField(10, 2)
     filled_qty = IntegerField()
     hwm = DecimalField(10, 2)
@@ -27,55 +29,78 @@ class Order(BaseModel):
     extended_hours = BooleanField()
     status = CharField(max_length=16)
 
-    cancelled_at = TimestampField()
-    expired_at = TimestampField()
-    replaced_at = TimestampField()
-    submitted_at = TimestampField()
-    created_at = TimestampField()
-    updated_at = TimestampField()
+    canceled_at = DateTimeField()
+    expired_at = DateTimeField()
+    replaced_at = DateTimeField()
+    submitted_at = DateTimeField()
+    created_at = DateTimeField()
+    updated_at = DateTimeField()
 
     class Meta:
-        db_table = 'position'
+        db_table = 'order'
 
 
-async def create_order(id, parent_id, symbol, side, order_qty, time_in_force, order_class, order_type, trail_percent,
-                       trail_price, initial_stop_price, updated_stop_price, failed_at, filled_at,
-                       filled_avg_price, filled_qty, hwm, limit_price, replaced_by, extended_hours, status,
-                       cancelled_at, expired_at, replaced_at, submitted_at, created_at, updated_at):
-    order_object = Order(id=id,
-                         parent_id=parent_id,
-                         symbol=symbol,
-                         side=side,
-                         order_qty=order_qty,
-                         time_in_force=time_in_force,
-                         order_class=order_class,
-                         order_type=order_type,
-                         trail_percent=trail_percent,
-                         trail_price=trail_price,
-                         initial_stop_price=initial_stop_price,
-                         updated_stop_price=updated_stop_price,
-                         failed_at=failed_at,
-                         filled_at=filled_at,
-                         filled_avg_price=filled_avg_price,
-                         filled_qty=filled_qty,
-                         hwm=hwm,
-                         limit_price=limit_price,
-                         replaced_by=replaced_by,
-                         extended_hours=extended_hours,
-                         status=status,
+def create_order(order_id: str, parent_id: str, symbol: str, side: str, order_qty: float, time_in_force: str,
+                 order_class: str, order_type: str, trail_percent: float, trail_price: float,
+                 initial_stop_price: float, updated_stop_price: float,  filled_avg_price: float, filled_qty: float,
+                 hwm: float, limit_price: float, replaced_by: str, extended_hours: bool, status: str,
+                 failed_at: datetime, filled_at: datetime, canceled_at: datetime, expired_at: datetime,
+                 replaced_at: datetime, submitted_at: datetime, created_at: datetime, updated_at: datetime):
+    insert_stmt = Order.insert(id=order_id,
+                               parent_id=parent_id,
+                               symbol=symbol,
+                               side=side,
+                               order_qty=order_qty,
+                               time_in_force=time_in_force,
+                               order_class=order_class,
+                               order_type=order_type,
+                               trail_percent=trail_percent,
+                               trail_price=trail_price,
+                               initial_stop_price=initial_stop_price,
+                               updated_stop_price=updated_stop_price,
+                               filled_avg_price=filled_avg_price,
+                               filled_qty=filled_qty,
+                               hwm=hwm,
+                               limit_price=limit_price,
+                               replaced_by=replaced_by,
+                               extended_hours=extended_hours,
+                               status=status,
 
-                         cancelled_at=cancelled_at,
-                         expired_at=expired_at,
-                         replaced_at=replaced_at,
-                         submitted_at=submitted_at,
-                         created_at=created_at,
-                         updated_at=updated_at)
-    order_object.save()
+                               failed_at=failed_at,
+                               filled_at=filled_at,
+                               canceled_at=canceled_at,
+                               expired_at=expired_at,
+                               replaced_at=replaced_at,
+                               submitted_at=submitted_at,
+                               created_at=created_at,
+                               updated_at=updated_at)
+    order_object = insert_stmt.execute()
     return order_object
 
 
-def get_order(id: str):
-    return Order.filter(Order.id == id).first()
+def update_order(order_id: str, updated_stop_price: float, filled_avg_price: float, filled_qty: float, hwm: float,
+                 replaced_by: str, extended_hours: bool, status: str,
+                 failed_at: datetime, filled_at: datetime, canceled_at: datetime,
+                 expired_at: datetime, replaced_at: datetime):
+
+    Order.update(updated_stop_price=updated_stop_price,
+                 filled_avg_price=filled_avg_price,
+                 filled_qty=filled_qty,
+                 hwm=hwm,
+                 replaced_by=replaced_by,
+                 extended_hours=extended_hours,
+                 status=status,
+                 failed_at=failed_at,
+                 filled_at=filled_at,
+                 canceled_at=canceled_at,
+                 expired_at=expired_at,
+                 replaced_at=replaced_at)\
+        .where(Order.id == order_id)\
+        .execute()
+
+
+def get_open_orders():
+    return Order.select().where(~(Order.status << ['canceled', 'filled']))
 
 
 def list_orders(skip: int = 0, limit: int = 100):

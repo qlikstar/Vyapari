@@ -1,25 +1,36 @@
 import abc
 import json
+import logging
 import os
 import time
+from abc import ABC
 
 import requests
 import telegram
 from colorama import Fore, Style
 from kink import inject
 
+logger = logging.getLogger(__name__)
+
 PARSE_MODE = telegram.ParseMode.MARKDOWN_V2
 
 
-class Notification(object):
+class Notification(ABC):
     @abc.abstractmethod
     def notify(self, message):
+        pass
+
+    @abc.abstractmethod
+    def err_notify(self, message):
         pass
 
 
 class NoOpNotification(Notification):
     def notify(self, message):
-        print("Notifying: {}".format(message))
+        logger.info("Notifying: {}".format(message))
+
+    def err_notify(self, message):
+        logger.error("Notifying: {}".format(message))
 
 
 class Pushover(Notification):
@@ -29,7 +40,7 @@ class Pushover(Notification):
         self.retry = 3
 
     def notify(self, message, trying=1):
-        print("Notifying: {}".format(message))
+        logger.info("Notifying: {}".format(message))
         try:
             res = requests.post("https://api.pushover.net/1/messages.json", data={
                 "token": self.token,
@@ -37,17 +48,20 @@ class Pushover(Notification):
                 "message": message
             })
         except ConnectionError:
-            print(f"{Fore.RED}WARNING: Message not sent.{message}{Style.RESET_ALL}\n")
+            logger.info(f"{Fore.RED}WARNING: Message not sent.{message}{Style.RESET_ALL}\n")
             return
 
         response = json.loads(res.text)
         if response['status'] != 1:
             if trying < self.retry:
                 time.sleep(10)
-                print("Retrying again ({}) in 10 seconds".format(trying))
+                logger.info("Retrying again ({}) in 10 seconds".format(trying))
                 self.notify(message, trying=trying + 1)
             else:
-                print(f"{Fore.RED}WARNING: Message not sent.{message}{Style.RESET_ALL}\n")
+                logger.info(f"{Fore.RED}WARNING: Message not sent.{message}{Style.RESET_ALL}\n")
+
+    def err_notify(self, message):
+        self.notify(message)
 
 
 @inject(alias=Notification)
@@ -60,12 +74,18 @@ class Telegram(Notification):
     def notify(self, message):
         self.bot.sendMessage(chat_id=self.chat_id, text=self._format_message(message), parse_mode=PARSE_MODE)
 
-    @staticmethod
-    def _format_message(message: str):
+    def err_notify(self, message):
+        self.bot.sendMessage(chat_id=self.chat_id, text=self._format_err_message(message), parse_mode=PARSE_MODE)
+
+    def _format_message(self, message: str):
         to_be_escaped = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
         for esc in to_be_escaped:
             message = message.replace(esc, f'\\{esc}')
 
         return f'`{message}`'
+
+    @staticmethod
+    def _format_err_message(self, message: str):
+        return self._format_message(message)
 
 
