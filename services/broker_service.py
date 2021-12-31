@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class Timeframe(Enum):
-    MIN_1 = "1min"
-    MIN_5 = "5min"
-    MIN_15 = "15min"
+    MIN_1 = "1Min"
+    MIN_5 = "5Min"
+    MIN_15 = "15Min"
     DAY = 'day'
 
 
@@ -167,6 +167,8 @@ class AlpacaClient(Broker):
             except APIError as api_error:
                 self.notification.err_notify(f"Bracket order to {side}: {qty} shares of {symbol} "
                                              f"could not be placed: {api_error}")
+            except Exception as ex:
+                logger.error(f"Error while placing bracket order: {ex}")
 
         else:
             logger.info("Order to {} could not be placed ...Market is NOT open.. !".format(side))

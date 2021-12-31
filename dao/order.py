@@ -100,7 +100,7 @@ def update_order(order_id: str, updated_stop_price: float, filled_avg_price: flo
 
 
 def get_open_orders():
-    return Order.select().where(~(Order.status << ['canceled', 'filled']))
+    return Order.select().where(~(Order.status << ['canceled', 'rejected', 'filled']))
 
 
 def list_orders(skip: int = 0, limit: int = 100):

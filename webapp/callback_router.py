@@ -5,7 +5,7 @@ import string
 from fastapi import APIRouter, Request
 from kink import di
 
-from services.reporting_service import TelegramService
+from services.chat_service import TelegramService
 
 logger = logging.getLogger(__name__)
 

@@ -84,7 +84,6 @@ class Telegram(Notification):
 
         return f'`{message}`'
 
-    @staticmethod
     def _format_err_message(self, message: str):
         return self._format_message(message)
 

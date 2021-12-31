@@ -1,18 +1,19 @@
 import logging
-import time
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import List
 
 import pandas
 from kink import di
 
+from schedules.safe_schedule import SafeScheduler
 from schedules.watchlist import WatchList
 from services.broker_service import Broker, Timeframe
 from services.order_service import OrderService
 from strategies.lw_breakout_strategy import LWStock
 
 logger = logging.getLogger(__name__)
+
 
 class LWModified(object):
     """
@@ -38,6 +39,7 @@ class LWModified(object):
         self.watchlist = WatchList()
         self.broker = di[Broker]
         self.order_service = di[OrderService]
+        self.schedule = di[SafeScheduler]
 
         self.todays_stock_picks: List[LWStock] = []
         self.stocks_traded_today: List[str] = []
@@ -51,11 +53,8 @@ class LWModified(object):
         self.broker.await_market_open()
         self.broker.close_all_positions()
 
-    def run(self, sleep_in_min, until):
-
-        while datetime.time(datetime.today()) < until:
-            self._run_singular()
-            time.sleep(sleep_in_min * 60)
+    def run(self, until_time):
+        self.schedule.every(60).seconds.until(until_time).do(self._run_singular)
 
     def _run_singular(self):
         if not self.broker.is_market_open():
@@ -66,7 +65,7 @@ class LWModified(object):
         held_stocks = [x.symbol for x in self.broker.get_positions()]
 
         for stock in self.todays_stock_picks:
-
+            logger.info(f"Checking {stock.symbol} to place an order ...")
             # Open new positions on stocks only if not already held or if not traded today
             if stock.symbol not in held_stocks and stock.symbol not in self.stocks_traded_today:
                 current_market_price = self.broker.get_current_price(stock.symbol)
@@ -82,6 +81,7 @@ class LWModified(object):
 
                     order = self.broker.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
                     self.stocks_traded_today.append(stock.symbol)
+                    self._save_to_db(stock.symbol, order)
 
                 # short
                 if stock.lw_lower_bound > current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
@@ -92,12 +92,14 @@ class LWModified(object):
 
                     order = self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
                     self.stocks_traded_today.append(stock.symbol)
+                    self._save_to_db(stock.symbol, order)
 
-                try:
-                    self.order_service.save_order(order)
-                except Exception as ex:
-                    logger.error(f'Exception: Bracket order could NOT be placed for: {stock.symbol}')
-
+    def _save_to_db(self, symbol, order):
+        logger.info(f'Order: {order}')
+        try:
+            self.order_service.save_order(order)
+        except Exception as ex:
+            logger.error(f'Exception: Bracket order could NOT be placed for: {symbol}: {ex}')
 
     def _get_stock_df(self, stock):
         data_folder = "data"

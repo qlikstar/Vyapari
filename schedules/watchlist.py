@@ -4,9 +4,11 @@ from typing import List
 from urllib.parse import urlparse
 
 import requests
+from kink import inject
 from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
 
 
+@inject
 class WatchList(object):
     nasdaq = "https://api.nasdaq.com/api/screener/stocks?tableonly=true"
     no_of_stocks = 4000

@@ -39,3 +39,6 @@ To be filled up later
 
 ## Note
 This is for educational purpose only. The author is not liable for any monetary loss during trading
+
+## Issues
+- Install TA-Lib on mac: https://stackoverflow.com/questions/41155985/python-ta-lib-install-problems

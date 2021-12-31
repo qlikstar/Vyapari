@@ -1,7 +1,8 @@
+from abc import ABC
 from pathlib import Path
 
 
-class Strategy(object):
+class Strategy(ABC):
 
     DATA = "data"
 

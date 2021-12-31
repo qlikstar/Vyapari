@@ -43,7 +43,6 @@ six==1.16.0
 sniffio==1.2.0
 SQLAlchemy==1.4.29
 starlette==0.16.0
-telegram==0.0.1
 tornado==6.1
 typing-extensions==3.10.0.2
 tzdata==2021.5
@@ -53,3 +52,4 @@ uvicorn==0.16.0
 websocket-client==1.2.3
 websockets==9.1
 yarl==1.7.2
+TA-Lib

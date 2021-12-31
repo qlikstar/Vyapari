@@ -1,31 +1,27 @@
-import time
-from datetime import datetime
-
 from colorama import Fore, Style
 from kink import di, inject
 
+from schedules.safe_schedule import SafeScheduler
 from services.broker_service import Broker
 from services.order_service import OrderService
-from services.position_service import PositionService
 
 
 @inject
 class Intermediate(object):
 
     def __init__(self):
-        self.position_service = di[PositionService]
+        self.schedule = di[SafeScheduler]
         self.order_service = di[OrderService]
         self.broker = di[Broker]
 
-    def run(self, sleep_in_min, until):
+    def run(self, until_time):
+        self.schedule.every(60).seconds.until(until_time).do(self._run_singular)
 
-        while datetime.time(datetime.today()) < until:
-            self._run_stats_singular()
-            self.position_service.update_current_positions()
-            self._update_order_status()
-            time.sleep(sleep_in_min * 60)
+    def _run_singular(self):
+        self._run_stats()
+        self._update_order_status()
 
-    def _run_stats_singular(self):
+    def _run_stats(self):
         total_unrealized_pl = 0
         for count, position in enumerate(self.broker.get_positions()):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
@@ -42,4 +38,4 @@ class Intermediate(object):
 
     def _update_order_status(self):
         for order in self.order_service.get_open_orders():
-            self.order_service.update_saved_order(order.order_id)
+            self.order_service.update_saved_order(order.id)

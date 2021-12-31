@@ -55,8 +55,8 @@ class Resistance(object):
         supports = []
         max_list = []
         min_list = []
-        shift_res = 22
-        shift_sup = 9
+        shift_res = 15
+        shift_sup = 5
         for i in range(shift_res, len(df) - shift_res):
             # taking a window of 9 candles
             high_range = df['high'][i - shift_res:i + (shift_res - 1)]
