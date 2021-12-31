@@ -6,13 +6,12 @@ import time
 from abc import ABC
 
 import requests
-import telegram
 from colorama import Fore, Style
-from kink import inject
+from kink import inject, di
+
+from component.Telegram import Telegram
 
 logger = logging.getLogger(__name__)
-
-PARSE_MODE = telegram.ParseMode.MARKDOWN_V2
 
 
 class Notification(ABC):
@@ -65,26 +64,16 @@ class Pushover(Notification):
 
 
 @inject(alias=Notification)
-class Telegram(Notification):
+class TelegramNotification(Notification):
     def __init__(self):
-        self.token = os.environ.get('TELEGRAM_API_KEY')
-        self.chat_id = os.environ.get('TELEGRAM_USER_CHAT_ID')
-        self.bot = telegram.Bot(token=self.token)
+        self.telegram: Telegram = di[Telegram]
+        self.chat_id = self.telegram.chat_id
+        self.bot = self.telegram.bot
 
-    def notify(self, message):
-        self.bot.sendMessage(chat_id=self.chat_id, text=self._format_message(message), parse_mode=PARSE_MODE)
+    async def notify(self, message):
+        await self.telegram.send_message(chat_id=self.chat_id, response=message)
 
-    def err_notify(self, message):
-        self.bot.sendMessage(chat_id=self.chat_id, text=self._format_err_message(message), parse_mode=PARSE_MODE)
-
-    def _format_message(self, message: str):
-        to_be_escaped = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-        for esc in to_be_escaped:
-            message = message.replace(esc, f'\\{esc}')
-
-        return f'`{message}`'
-
-    def _format_err_message(self, message: str):
-        return self._format_message(message)
+    async def err_notify(self, message):
+        await self.telegram.send_message(chat_id=self.chat_id, response=message)
 
 

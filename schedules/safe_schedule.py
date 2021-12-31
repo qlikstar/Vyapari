@@ -1,11 +1,21 @@
 import datetime
 import logging
+from enum import Enum
 from traceback import format_exc
 
 from kink import inject
 from schedule import Scheduler
 
 logger = logging.getLogger('schedule')
+
+
+class FrequencyTag(Enum):
+    DAILY = "DAILY"
+    MINUTELY = "1_MINUTE"
+    FIVE_MINUTELY = "5_MINUTES"
+    TEN_MINUTELY = "10_MINUTES"
+    HOURLY = "1_HOUR"
+    HEARTBEAT = "10_SECONDS"
 
 
 @inject
@@ -34,3 +44,9 @@ class SafeScheduler(Scheduler):
             logger.error(format_exc())
             job.last_run = datetime.datetime.now()
             job._schedule_next_run()
+
+    def run_adhoc(self, job, run_every_x_secs: int, run_until: str, frequency_tag: FrequencyTag):
+        self.every(run_every_x_secs) \
+            .seconds.until(run_until) \
+            .do(job) \
+            .tag(frequency_tag.value)

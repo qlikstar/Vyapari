@@ -3,32 +3,23 @@ import logging
 import threading
 from _datetime import timedelta
 from datetime import datetime
-from enum import Enum
 from time import sleep
 
 from kink import di
 
 from app_config import AppConfig
-from schedules.safe_schedule import SafeScheduler
+from schedules.safe_schedule import SafeScheduler, FrequencyTag
 
 logger = logging.getLogger(__name__)
 
 START_TRADING = "06:50"
-STOP_TRADING = "12:00"
+STOP_TRADING = "12:45"
 MARKET_CLOSE = "13:00"
 SLEEP_RUN_STRATEGY = 1
 SLEEP_SHOW_CURRENT = 10
 
 
 # UNTIL_MARKET_CLOSE = datetime.strptime(MARKET_CLOSE, '%H:%M').time()
-
-class FrequencyTag(Enum):
-    DAILY = "DAILY"
-    MINUTELY = "1_MINUTE"
-    FIVE_MINUTELY = "5_MINUTES"
-    TEN_MINUTELY = "10_MINUTES"
-    HOURLY = "1_HOUR"
-    HEARTBEAT = "10_SECONDS"
 
 
 class SchedulerService(object):
@@ -44,9 +35,9 @@ class SchedulerService(object):
         if self._is_within_valid_duration():
             self._run_jobs_once()
 
-        self.schedule.every().day.at(start_trading).do(self.app_config.run_strategy,
+        self.schedule.every().day.at(start_trading).do(self.app_config.run_strategy, 60,
                                                        STOP_TRADING).tag(FrequencyTag.DAILY)
-        self.schedule.every().day.at(start_trading).do(self.app_config.show_current_holdings,
+        self.schedule.every().day.at(start_trading).do(self.app_config.show_current_holdings, 600,
                                                        MARKET_CLOSE).tag(FrequencyTag.DAILY)
 
         self.schedule.every().day.at(STOP_TRADING).do(self.app_config.run_before_market_close).tag(FrequencyTag.DAILY)
@@ -81,12 +72,6 @@ class SchedulerService(object):
         self.cancel()
 
         asyncio.get_running_loop().run_in_executor(None, self.start)
-
-    def schedule_adhoc(self, job, run_every_x_secs: int, run_until: str, frequency_tag: FrequencyTag):
-        self.schedule.every(run_every_x_secs)\
-            .seconds.until(run_until)\
-            .do(job)\
-            .tag(frequency_tag.FIVE_MINUTELY)
 
     def _run_jobs_once(self):
         now_plus_30 = datetime.now() + timedelta(seconds=61)

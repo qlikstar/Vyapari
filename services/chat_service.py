@@ -1,10 +1,11 @@
 import logging
-import os
 from abc import ABC
 
 import telegram
 from fastapi import Request
-from telegram.error import NetworkError
+from kink import di
+
+from component.Telegram import Telegram
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +18,13 @@ class ChatService(ABC):
 class TelegramService(ChatService):
 
     def __init__(self, uri: str):
-        self.token = os.environ.get('TELEGRAM_API_KEY')
-        self.url = os.environ.get('TELEGRAM_CALLBACK_URL')
-        self.chat_id = os.environ.get('TELEGRAM_USER_CHAT_ID')
         self.uri = uri
-        self.bot = telegram.Bot(token=self.token)
-        self.bot.set_webhook(f'{self.url}/{self.uri}')
+        self.telegram: Telegram = di[Telegram]
+        self.telegram.bot.set_webhook(f'{self.telegram.url}/{self.uri}')
 
     async def respond(self, request: Request) -> None:
         req_info = await request.json()
-        update = telegram.Update.de_json(req_info, self.bot)
+        update = telegram.Update.de_json(req_info, self.telegram.bot)
 
         # get the chat_id to be able to respond to the same user
         chat_id = update.message.chat.id
@@ -38,26 +36,10 @@ class TelegramService(ChatService):
         command = update.message.text.encode('utf-8').decode().lower()
         logger.info(f"got text message :{command}")
 
-        response = self._format_message(CommandResponse().get_command(command))
+        response = self.telegram.format_message(CommandResponse().get_command(command))
         # now just send the message back
         # notice how we specify the chat and the msg we reply to
-        await self._send_message(chat_id=chat_id, response=response, reply_to_message_id=msg_id)
-
-    async def _send_message(self, chat_id: str, response: str, reply_to_message_id: str = None):
-
-        try:
-            self.bot.send_message(chat_id=chat_id, text=response, reply_to_message_id=reply_to_message_id,
-                                  parse_mode=telegram.ParseMode.MARKDOWN_V2)
-        except NetworkError as network_err:
-            logger.warning(f'Telegram NetworkError: {network_err.message}!')
-
-    @staticmethod
-    def _format_message(message: str):
-        to_be_escaped = ['_', '[', ']', '(', ')', '~', '<', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-        for esc in to_be_escaped:
-            message = message.replace(esc, f'\\{esc}')
-
-        return message
+        await self.telegram.send_message(chat_id=chat_id, response=response, reply_to_message_id=msg_id)
 
 
 class CommandResponse(object):

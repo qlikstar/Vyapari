@@ -1,7 +1,7 @@
 from colorama import Fore, Style
 from kink import di, inject
 
-from schedules.safe_schedule import SafeScheduler
+from schedules.safe_schedule import SafeScheduler, FrequencyTag
 from services.broker_service import Broker
 from services.order_service import OrderService
 
@@ -14,8 +14,8 @@ class Intermediate(object):
         self.order_service = di[OrderService]
         self.broker = di[Broker]
 
-    def run(self, until_time):
-        self.schedule.every(60).seconds.until(until_time).do(self._run_singular)
+    def run(self, sleep_next_x_seconds, until_time):
+        self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.TEN_MINUTELY)
 
     def _run_singular(self):
         self._run_stats()

@@ -6,7 +6,7 @@ from typing import List
 import pandas
 from kink import di
 
-from schedules.safe_schedule import SafeScheduler
+from schedules.safe_schedule import SafeScheduler, FrequencyTag
 from schedules.watchlist import WatchList
 from services.broker_service import Broker, Timeframe
 from services.order_service import OrderService
@@ -53,8 +53,8 @@ class LWModified(object):
         self.broker.await_market_open()
         self.broker.close_all_positions()
 
-    def run(self, until_time):
-        self.schedule.every(60).seconds.until(until_time).do(self._run_singular)
+    def run(self, sleep_next_x_seconds, until_time):
+        self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
         if not self.broker.is_market_open():

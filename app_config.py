@@ -34,18 +34,18 @@ class AppConfig(object):
         self.cleanup = CleanUp()
         self.final_steps = FinalSteps()
 
-    def run_strategy(self, until):
+    def run_strategy(self, sleep_next_x_seconds, until_time):
 
         if self.broker.is_market_open():
             self.initial_steps.show_portfolio_details()
             self.strategy.initialize()
-            self.strategy.run(until)
+            self.strategy.run(sleep_next_x_seconds, until_time)
         else:
             logger.info("Market is closed today!")
 
-    def show_current_holdings(self, until):
+    def show_current_holdings(self, sleep_next_x_seconds, until_time):
         if self.broker.is_market_open():
-            return self.intermediate.run(until)
+            return self.intermediate.run(sleep_next_x_seconds, until_time)
 
     def run_before_market_close(self):
         self.cleanup.close_all_positions()
