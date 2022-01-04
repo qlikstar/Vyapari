@@ -27,7 +27,7 @@ class Telegram(object):
 
     @staticmethod
     def format_message(message: str):
-        to_be_escaped = ['_', '[', ']', '(', ')', '~', '<', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+        to_be_escaped = ['_', '[', ']', '(', ')', '~', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
         for esc in to_be_escaped:
             message = message.replace(esc, f'\\{esc}')
 

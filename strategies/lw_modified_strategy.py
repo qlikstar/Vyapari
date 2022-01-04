@@ -4,15 +4,28 @@ from pathlib import Path
 from typing import List
 
 import pandas
+import talib
+from attr import dataclass
 from kink import di
 
-from schedules.safe_schedule import SafeScheduler, FrequencyTag
-from schedules.watchlist import WatchList
-from services.broker_service import Broker, Timeframe
+from component.schedule import SafeScheduler, FrequencyTag
+from scheduled_jobs.watchlist import WatchList
+from services.data_service import DataService, Timeframe
 from services.order_service import OrderService
-from strategies.lw_breakout_strategy import LWStock
+from services.position_service import PositionService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LWStock:
+    symbol: str
+    yesterdays_change: float
+    moved: float
+    weightage: float
+    lw_lower_bound: float
+    lw_upper_bound: float
+    step: float
 
 
 class LWModified(object):
@@ -29,7 +42,7 @@ class LWModified(object):
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
     MOVED_DAYS = 3
-    BARSET_RECORDS = 5
+    BARSET_RECORDS = 20
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
@@ -37,9 +50,10 @@ class LWModified(object):
     def __init__(self):
         self.name = "LWBreakout"
         self.watchlist = WatchList()
-        self.broker = di[Broker]
-        self.order_service = di[OrderService]
-        self.schedule = di[SafeScheduler]
+        self.order_service: OrderService = di[OrderService]
+        self.position_service: PositionService = di[PositionService]
+        self.schedule: SafeScheduler = di[SafeScheduler]
+        self.data_service: DataService = di[DataService]
 
         self.todays_stock_picks: List[LWStock] = []
         self.stocks_traded_today: List[str] = []
@@ -50,56 +64,47 @@ class LWModified(object):
     def initialize(self):
         self.stocks_traded_today = []
         self.todays_stock_picks = self._get_todays_picks()
-        self.broker.await_market_open()
-        self.broker.close_all_positions()
+        self.order_service.await_market_open()
+        self.order_service.close_all()
 
     def run(self, sleep_next_x_seconds, until_time):
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
-        if not self.broker.is_market_open():
-            print("Market is not open !")
+        if not self.order_service.is_market_open():
+            logger.warning("Market is not open !")
             return
 
         # First check if stock not already purchased
-        held_stocks = [x.symbol for x in self.broker.get_positions()]
+        held_stocks = [x.symbol for x in self.position_service.get_all_positions()]
 
         for stock in self.todays_stock_picks:
             logger.info(f"Checking {stock.symbol} to place an order ...")
             # Open new positions on stocks only if not already held or if not traded today
             if stock.symbol not in held_stocks and stock.symbol not in self.stocks_traded_today:
-                current_market_price = self.broker.get_current_price(stock.symbol)
+                current_market_price = self.data_service.get_current_price(stock.symbol)
                 trade_count = len(self.stocks_traded_today)
 
-                order = None
                 # long
                 if stock.lw_upper_bound < current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
-                    print("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                    logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                     no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
                     stop_loss = current_market_price - (3 * stock.step)
                     take_profit = current_market_price + (6 * stock.step)
 
-                    order = self.broker.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
+                    self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
                     self.stocks_traded_today.append(stock.symbol)
-                    self._save_to_db(stock.symbol, order)
 
                 # short
-                if stock.lw_lower_bound > current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
-                    print("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
-                    stop_loss = current_market_price + (3 * stock.step)
-                    take_profit = current_market_price - (6 * stock.step)
-
-                    order = self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
-                    self.stocks_traded_today.append(stock.symbol)
-                    self._save_to_db(stock.symbol, order)
-
-    def _save_to_db(self, symbol, order):
-        logger.info(f'Order: {order}')
-        try:
-            self.order_service.save_order(order)
-        except Exception as ex:
-            logger.error(f'Exception: Bracket order could NOT be placed for: {symbol}: {ex}')
+                # if self.order_service.is_shortable(stock.symbol) \
+                #         and stock.lw_lower_bound > current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
+                #     logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                #     no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
+                #     stop_loss = current_market_price + (3 * stock.step)
+                #     take_profit = current_market_price - (6 * stock.step)
+                #
+                #     self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
+                #     self.stocks_traded_today.append(stock.symbol)
 
     def _get_stock_df(self, stock):
         data_folder = "data"
@@ -110,15 +115,15 @@ class LWModified(object):
         if df_path.exists():
             df = pandas.read_pickle(df_path)
         else:
-            if self.broker.is_tradable(stock):
-                df = self.broker.get_bars(stock, Timeframe.DAY, limit=LWModified.BARSET_RECORDS)
+            if self.order_service.is_tradable(stock):
+                df = self.data_service.get_bars(stock, Timeframe.DAY, limit=LWModified.BARSET_RECORDS)
                 # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
                 # df['net_change'] = 1 + (df['pct_change'] / 100)
                 # df['cum_change'] = df['net_change'].cumprod()
                 df.to_pickle(df_path)
 
             else:
-                print('stock symbol {} is not tradable with broker'.format(stock))
+                logger.warning('stock symbol {} is not tradable with broker'.format(stock))
                 return None
 
         return df
@@ -136,16 +141,20 @@ class LWModified(object):
                 continue
 
             stock_price = df.iloc[-1]['close']
-            print(df.iloc[-1])
             if stock_price > LWModified.STOCK_MAX_PRICE or stock_price < LWModified.STOCK_MIN_PRICE:
                 continue
 
             df = self._get_stock_df(stock)
-            price_open = df.iloc[-LWModified.MOVED_DAYS]['open']
+            df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
+            increasing_atr = df.iloc[-1]['ATR'] > df.iloc[-2]['ATR']
+
+            df['TEMA_5'] = talib.TEMA(df['close'], timeperiod=5)
+            df['TEMA_9'] = talib.TEMA(df['close'], timeperiod=9)
+            uptrend = df.iloc[-1]['TEMA_5'] > df.iloc[-1]['TEMA_9'] and df.iloc[-2]['TEMA_5'] > df.iloc[-2]['TEMA_9']
+
+            price_open = df.iloc[-1]['open']
             price_close = df.iloc[-1]['close']
-            percent_change = round((price_close - price_open) / price_open * 100, 3)
-            print('[{}/{}] -> {} moved {}% over the last {} days'.format(count + 1, len(from_watchlist),
-                                                                         stock, percent_change, LWModified.MOVED_DAYS))
+            yesterdays_change = round((price_close - price_open) / price_open * 100, 3)
 
             todays_record = df.iloc[-1]
             t_stock_open = todays_record['open']
@@ -157,18 +166,18 @@ class LWModified(object):
             t_range = t_stock_high - t_stock_low  # yesterday's range
             step = round(t_range * 0.25, 3)
 
-            weightage = self._calculate_weightage(percent_change, t_change)
+            weightage = self._calculate_weightage(yesterdays_change, t_change)
             lw_lower_bound = round(stock_price - step, 3)
             lw_upper_bound = round(stock_price + step, 3)
 
-            stock_info.append(
-                LWStock(stock, t_change, percent_change, weightage, lw_lower_bound, lw_upper_bound, step))
+            if increasing_atr and uptrend:
+                logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} moved {yesterdays_change}% yesterday')
+                stock_info.append(
+                    LWStock(stock, yesterdays_change, t_change, weightage, lw_lower_bound, lw_upper_bound, step))
 
         biggest_movers = sorted(stock_info, key=lambda i: i.weightage, reverse=True)
         stock_picks = self._select_best(biggest_movers)
-        print('today\'s picks: ')
-        [print(stock_pick) for stock_pick in stock_picks]
-        print('\n')
+        logger.info(f'today\'s picks: {[stock_pick for stock_pick in stock_picks]}')
         return stock_picks
 
     @staticmethod
@@ -177,4 +186,4 @@ class LWModified(object):
 
     @staticmethod
     def _select_best(biggest_movers):
-        return [x for x in biggest_movers if x.yesterdays_change > 6]
+        return [x for x in biggest_movers if x.yesterdays_change > 3]

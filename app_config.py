@@ -1,14 +1,15 @@
+import asyncio
 import logging
 
-from kink import inject
+from kink import inject, di
 
-from schedules.cleanup import CleanUp
-from schedules.final_steps import FinalSteps
-from schedules.initial_steps import InitialSteps
-from schedules.intermediate import Intermediate
-from schedules.watchlist import WatchList
+from scheduled_jobs.cleanup import CleanUp
+from scheduled_jobs.final_steps import FinalSteps
+from scheduled_jobs.initial_steps import InitialSteps
+from scheduled_jobs.intermediate import Intermediate
+from scheduled_jobs.watchlist import WatchList
 from services.broker_service import AlpacaClient
-from services.notification_service import Pushover
+from services.notification_service import Pushover, Notification
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.util import load_env_variables
@@ -22,7 +23,7 @@ class AppConfig(object):
 
     def __init__(self):
         load_env_variables()
-        self.notification = Pushover()
+        self.notification = di[Notification]
         self.broker = AlpacaClient()
         self.position_service = PositionService()
         self.order_service = OrderService()

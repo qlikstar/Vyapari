@@ -40,15 +40,6 @@ CREATE TABLE `account` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `account`
---
-
-LOCK TABLES `account` WRITE;
-/*!40000 ALTER TABLE `account` DISABLE KEYS */;
-/*!40000 ALTER TABLE `account` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `order`
 --
 
@@ -60,24 +51,23 @@ CREATE TABLE `order` (
   `parent_id` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
   `symbol` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `side` varchar(4) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `order_qty` int NOT NULL,
+  `order_qty` decimal(10,2) NOT NULL,
   `time_in_force` varchar(6) COLLATE utf8mb4_unicode_ci NOT NULL,
   `order_class` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `order_type` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
   `trail_percent` decimal(10,2) DEFAULT NULL,
   `trail_price` decimal(10,2) DEFAULT NULL,
   `initial_stop_price` decimal(10,2) DEFAULT NULL,
   `updated_stop_price` decimal(10,2) DEFAULT NULL,
-  `failed_at` timestamp NULL DEFAULT NULL,
-  `filled_at` timestamp NULL DEFAULT NULL,
-  `filled_avg_price` decimal(10,2) DEFAULT NULL,
-  `filled_qty` int DEFAULT NULL,
   `hwm` decimal(10,2) DEFAULT NULL,
   `limit_price` decimal(10,2) DEFAULT NULL,
   `replaced_by` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `extended_hours` tinyint DEFAULT NULL,
   `status` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `filled_avg_price` decimal(10,2) DEFAULT NULL,
+  `filled_qty` decimal(10,2) DEFAULT NULL,
+  `failed_at` timestamp NULL DEFAULT NULL,
+  `filled_at` timestamp NULL DEFAULT NULL,
   `canceled_at` timestamp NULL DEFAULT NULL,
   `expired_at` timestamp NULL DEFAULT NULL,
   `replaced_at` timestamp NULL DEFAULT NULL,
@@ -89,15 +79,6 @@ CREATE TABLE `order` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `order`
---
-
-LOCK TABLES `order` WRITE;
-/*!40000 ALTER TABLE `order` DISABLE KEYS */;
-/*!40000 ALTER TABLE `order` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `position`
 --
 
@@ -107,7 +88,7 @@ DROP TABLE IF EXISTS `position`;
 CREATE TABLE `position` (
   `run_date` date NOT NULL,
   `symbol` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `side` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `side` varchar(5) COLLATE utf8mb4_unicode_ci NOT NULL,
   `qty` int NOT NULL,
   `entry_price` decimal(10,2) NOT NULL,
   `market_price` decimal(10,2) NOT NULL,
@@ -117,16 +98,6 @@ CREATE TABLE `position` (
   PRIMARY KEY (`run_date`,`symbol`,`side`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `position`
---
-
-LOCK TABLES `position` WRITE;
-/*!40000 ALTER TABLE `position` DISABLE KEYS */;
-INSERT INTO `position` VALUES ('2021-12-22','AAPL','long',10,170.13,175.98,172.99,'2021-12-22 10:51:56','2021-12-22 20:45:25'),('2021-12-22','CNK','long',248,20.19,17.35,17.23,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','ERF','long',529,9.47,9.91,9.74,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','EZPW','long',677,7.40,7.09,7.19,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','GEL','long',440,11.37,10.34,10.02,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','IGT','long',168,29.80,27.91,27.85,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','MSFT','long',1,327.08,333.75,327.29,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','OXY','long',142,35.16,28.93,28.60,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','RFP','long',374,13.41,13.28,12.85,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','TDW','long',391,12.79,10.71,10.74,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','TWLO','long',10,266.95,268.77,276.92,'2021-12-22 10:51:55','2021-12-22 20:45:25'),('2021-12-22','VET','long',437,11.44,12.51,11.71,'2021-12-22 10:51:55','2021-12-22 20:45:25');
-/*!40000 ALTER TABLE `position` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -137,4 +108,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2021-12-22 21:41:17
+-- Dump completed on 2022-01-03 23:29:16

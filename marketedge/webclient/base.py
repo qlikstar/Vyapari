@@ -1,14 +1,14 @@
 '''This library provides basic webservice client python interfaces.'''
 
-import httplib
 import base64
 import json
 import os
-
 from urllib import urlencode
 
-__author__ = 'Juan Enrique Munoz Zolotoochin'
-__email__ = 'juanique@gmail.com'
+import httplib
+
+__author__ = 'Qlikstar'
+__email__ = 'decipherx.teknas@gmail.com'
 
 
 class HttpResponse(object):

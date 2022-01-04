@@ -8,12 +8,12 @@ from time import sleep
 from kink import di
 
 from app_config import AppConfig
-from schedules.safe_schedule import SafeScheduler, FrequencyTag
+from component.schedule import SafeScheduler, FrequencyTag
 
 logger = logging.getLogger(__name__)
 
 START_TRADING = "06:50"
-STOP_TRADING = "12:45"
+STOP_TRADING = "12:00"
 MARKET_CLOSE = "13:00"
 SLEEP_RUN_STRATEGY = 1
 SLEEP_SHOW_CURRENT = 10
@@ -26,7 +26,7 @@ class SchedulerService(object):
     def __init__(self):
         self.app_config = di[AppConfig]
         self.schedule = di[SafeScheduler]
-        self.schedule.every(10).seconds.do(self.run_threaded, self.app_config.register_heartbeat)\
+        self.schedule.every(10).seconds.do(self.run_threaded, self.app_config.register_heartbeat) \
             .tag(FrequencyTag.HEARTBEAT)
 
     def start(self, start_trading=START_TRADING):
@@ -78,9 +78,9 @@ class SchedulerService(object):
         at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
         logger.info(f"Run once jobs start at: {at_time}")
 
-        self.schedule.every().day.at(at_time).do(self.app_config.run_strategy, STOP_TRADING) \
+        self.schedule.every().day.at(at_time).do(self.app_config.run_strategy, 60, STOP_TRADING) \
             .tag(FrequencyTag.DAILY)
-        self.schedule.every().day.at(at_time).do(self.app_config.show_current_holdings, MARKET_CLOSE) \
+        self.schedule.every().day.at(at_time).do(self.app_config.show_current_holdings, 600, MARKET_CLOSE) \
             .tag(FrequencyTag.DAILY)
         return self.schedule.cancel_job
 

@@ -1,7 +1,7 @@
 from colorama import Fore, Style
 from kink import di, inject
 
-from schedules.safe_schedule import SafeScheduler, FrequencyTag
+from component.schedule import SafeScheduler, FrequencyTag
 from services.broker_service import Broker
 from services.order_service import OrderService
 
@@ -11,7 +11,7 @@ class Intermediate(object):
 
     def __init__(self):
         self.schedule = di[SafeScheduler]
-        self.order_service = di[OrderService]
+        self.order_service: OrderService = di[OrderService]
         self.broker = di[Broker]
 
     def run(self, sleep_next_x_seconds, until_time):
@@ -37,5 +37,4 @@ class Intermediate(object):
         print("Total unrealized P/L: ${:.2f}\n\n".format(total_unrealized_pl))
 
     def _update_order_status(self):
-        for order in self.order_service.get_open_orders():
-            self.order_service.update_saved_order(order.id)
+        self.order_service.update_all_open_orders()

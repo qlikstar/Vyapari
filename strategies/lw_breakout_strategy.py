@@ -5,8 +5,9 @@ from typing import List
 
 import pandas
 
-from schedules.watchlist import WatchList
-from services.broker_service import Broker, Timeframe
+from scheduled_jobs.watchlist import WatchList
+from services.broker_service import Broker
+from services.data_service import Timeframe
 
 
 @dataclass
@@ -79,14 +80,14 @@ class LWBreakout(object):
                     self.stocks_traded_today.append(stock.symbol)
 
                 # short
-                if stock.lw_lower_bound > current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
-                    print("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
-                    stop_loss = current_market_price + (3 * stock.step)
-                    take_profit = current_market_price - (6 * stock.step)
-
-                    self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
-                    self.stocks_traded_today.append(stock.symbol)
+                # if stock.lw_lower_bound > current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
+                #     print("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                #     no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
+                #     stop_loss = current_market_price + (3 * stock.step)
+                #     take_profit = current_market_price - (6 * stock.step)
+                #
+                #     self.broker.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
+                #     self.stocks_traded_today.append(stock.symbol)
 
     def _get_stock_df(self, stock):
         data_folder = "data"

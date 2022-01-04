@@ -6,9 +6,10 @@ from alpaca_trade_api.entity import BarSet
 from kink import di
 from mplfinance.original_flavor import candlestick_ohlc
 
-from strategies.strategy import Strategy
-from services.broker_service import Timeframe, Broker
+from services.broker_service import Broker
+from services.data_service import Timeframe
 from services.util import load_env_variables
+from strategies.strategy import Strategy
 
 """
     Resistance and Support calculation:

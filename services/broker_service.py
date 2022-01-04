@@ -2,12 +2,11 @@ import abc
 import logging
 import time
 from datetime import datetime
-from enum import Enum
 from random import randint
 from typing import List
 
 import alpaca_trade_api as alpaca_api
-from alpaca_trade_api.entity import BarSet, Position, Account
+from alpaca_trade_api.entity import Position, Account
 from alpaca_trade_api.rest import APIError
 from kink import di, inject
 from requests import ReadTimeout
@@ -15,13 +14,6 @@ from requests import ReadTimeout
 from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)
-
-
-class Timeframe(Enum):
-    MIN_1 = "1Min"
-    MIN_5 = "5Min"
-    MIN_15 = "15Min"
-    DAY = 'day'
 
 
 class Broker(abc.ABC):
@@ -32,10 +24,6 @@ class Broker(abc.ABC):
 
     @abc.abstractmethod
     def get_current_price(self, symbol):
-        pass
-
-    @abc.abstractmethod
-    def get_bars(self, symbol: str, timeframe: Timeframe, limit: int):
         pass
 
     @abc.abstractmethod
@@ -97,12 +85,6 @@ class AlpacaClient(Broker):
 
     def get_current_price(self, symbol) -> float:
         return self.api.get_last_trade(symbol).price
-
-    # TODO : get_barset has been deprecated use get_bars instead
-    # self.api.get_bars('AAPL', TimeFrame.Day, start='2021-09-12', end="2021-09-21").df
-    # However, this does not allow query for current date !!!
-    def get_bars(self, symbol: str, timeframe: Timeframe, limit: int) -> BarSet:
-        return self.api.get_barset(symbol, timeframe.value, limit).df[symbol]
 
     def get_positions(self, trying=0) -> List[Position]:
         try:
@@ -169,6 +151,7 @@ class AlpacaClient(Broker):
                                              f"could not be placed: {api_error}")
             except Exception as ex:
                 logger.error(f"Error while placing bracket order: {ex}")
+                self.notification.err_notify(f"Error while placing bracket order: {ex}")
 
         else:
             logger.info("Order to {} could not be placed ...Market is NOT open.. !".format(side))

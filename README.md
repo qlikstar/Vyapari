@@ -26,7 +26,7 @@ This project is highly customizable and is based on the following:
 - Setup webhook locally: https://github.com/azimjohn/jprq-python-client
 - Expose port `8000` locally to receive Telegram requests: `jprq http 8000 -s=<subdomain>`
 
-## Backtesting
+## Back-testing
 - Edit `backtest.py` to suit your needs
 - Run the command`$ python3 backtest.py`
 
