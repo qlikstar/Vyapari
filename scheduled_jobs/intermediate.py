@@ -1,7 +1,7 @@
 from colorama import Fore, Style
 from kink import di, inject
 
-from component.schedule import SafeScheduler, FrequencyTag
+from core.schedule import SafeScheduler, FrequencyTag
 from services.broker_service import Broker
 from services.order_service import OrderService
 

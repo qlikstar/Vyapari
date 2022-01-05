@@ -1,9 +1,17 @@
+import logging
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from statistics import mean
+from typing import List, Tuple
+
+import pandas
 import talib
 from kink import di
 
-from component.schedule import SafeScheduler
+from core.schedule import SafeScheduler, FrequencyTag
 from scheduled_jobs.watchlist import WatchList
-from services.data_service import DataService
+from services.data_service import DataService, Timeframe
 from services.order_service import OrderService
 from services.position_service import PositionService
 from strategies.strategy import Strategy
@@ -26,10 +34,31 @@ Rules:
        a. Sell half of the stocks when the price reaches the upper limit.
        b. Hold rest of the stocks and apply Chandelier stop loss and continue moving
        c. Sell all at 12 PM
+       
+Steps:
+    1. get the list of high volume stocks and ETFs from NASDAQ (TSLA, AAPL, QQQ etc)
+    2. determine the stocks with high volatilty (using ATR)
+    3. Now, at 7 AM, get the DFs and determine the Opening Range
+    4. Run _singular jobs every 5 minutes to determine if the stock has crossed the upper/lowe range
+    5. If it hs crossed and the volume for the duration is higher than last 5 durations, enter the trade, 
+    with a trailing stop loss equal to twice the 5-min ATR  
+       
+    alpaca.get_barset('QQQ', "15Min", start='2022-01-03T09:00:00-05:00', until='2022-01-03T10:15:00-05:00').df
 '''
 
+logger = logging.getLogger(__name__)
 
-class OpeningRangeBreakout(Strategy):
+
+@dataclass
+class ORBStock:
+    symbol: str
+    atr_to_price: float
+    lower_bound: float
+    upper_bound: float
+    range: float
+
+
+class ORBStrategy(Strategy):
     # TODO : Move the constants to Algo config
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
@@ -40,14 +69,14 @@ class OpeningRangeBreakout(Strategy):
     MAX_NUM_STOCKS = 40
 
     def __init__(self):
-        self.name = "LWBreakout"
+        self.name = "OpeningRangeBreakoutStrategy"
         self.watchlist = WatchList()
         self.order_service: OrderService = di[OrderService]
         self.position_service: PositionService = di[PositionService]
         self.schedule: SafeScheduler = di[SafeScheduler]
         self.data_service: DataService = di[DataService]
 
-        self.todays_stock_picks: List[LWStock] = []
+        self.todays_stock_picks: List[ORBStock] = []
         self.stocks_traded_today: List[str] = []
 
     def get_algo_name(self) -> str:
@@ -62,22 +91,21 @@ class OpeningRangeBreakout(Strategy):
     def define_buy_sell(self, data):
         pass
 
-    def initialize(self):
+    def init_data(self) -> None:
         self.stocks_traded_today = []
         self.todays_stock_picks = self._get_todays_picks()
-        self.order_service.await_market_open()
-        self.order_service.close_all()
 
     def run(self, sleep_next_x_seconds, until_time):
+        self.order_service.close_all()
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
         if not self.order_service.is_market_open():
-            print("Market is not open !")
+            logger.warning("Market is not open !")
             return
 
         # First check if stock not already purchased
-        held_stocks = [x.symbol for x in self.position_service.get_positions()]
+        held_stocks = [x.symbol for x in self.position_service.get_all_positions()]
 
         for stock in self.todays_stock_picks:
             logger.info(f"Checking {stock.symbol} to place an order ...")
@@ -86,55 +114,39 @@ class OpeningRangeBreakout(Strategy):
                 current_market_price = self.data_service.get_current_price(stock.symbol)
                 trade_count = len(self.stocks_traded_today)
 
-                # long
-                if stock.lw_upper_bound < current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
-                    print("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
-                    stop_loss = current_market_price - (3 * stock.step)
-                    take_profit = current_market_price + (6 * stock.step)
+                # Enter the position only on high volume
+                if self._with_high_volume(stock.symbol):
 
-                    self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss,
-                                                           take_profit)
-                    self.stocks_traded_today.append(stock.symbol)
+                    # long
+                    if stock.upper_bound < current_market_price and trade_count < ORBStrategy.MAX_NUM_STOCKS:
+                        logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                        no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        stop_loss = current_market_price - stock.range
+                        take_profit = current_market_price + stock.range
 
-                # short
-                if stock.lw_lower_bound > current_market_price and trade_count < LWModified.MAX_NUM_STOCKS:
-                    print("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
-                    no_of_shares = int(LWModified.AMOUNT_PER_ORDER / current_market_price)
-                    stop_loss = current_market_price + (3 * stock.step)
-                    take_profit = current_market_price - (6 * stock.step)
+                        self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
+                                                               stop_loss, take_profit)
+                        self.stocks_traded_today.append(stock.symbol)
 
-                    self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss,
-                                                           take_profit)
-                    self.stocks_traded_today.append(stock.symbol)
+                    # short
+                    if self.order_service.is_shortable(stock.symbol) \
+                            and stock.lower_bound > current_market_price \
+                            and trade_count < ORBStrategy.MAX_NUM_STOCKS:
+                        logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                        no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        stop_loss = current_market_price + stock.range
+                        take_profit = current_market_price - stock.range
 
-    def _get_stock_df(self, stock):
-        data_folder = "data"
-        today = date.today().isoformat()
-        df_path = Path("/".join([data_folder, today, stock + ".pkl"]))
-        df_path.parent.mkdir(parents=True, exist_ok=True)
+                        self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
+                                                               stop_loss, take_profit)
+                        self.stocks_traded_today.append(stock.symbol)
 
-        if df_path.exists():
-            df = pandas.read_pickle(df_path)
-        else:
-            if self.order_service.is_tradable(stock):
-                df = self.data_service.get_bars(stock, Timeframe.DAY, limit=LWModified.BARSET_RECORDS)
-                # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
-                # df['net_change'] = 1 + (df['pct_change'] / 100)
-                # df['cum_change'] = df['net_change'].cumprod()
-                df.to_pickle(df_path)
-
-            else:
-                print('stock symbol {} is not tradable with broker'.format(stock))
-                return None
-
-        return df
-
-    def _get_todays_picks(self) -> List[LWStock]:
+    def _get_todays_picks(self) -> List[ORBStock]:
         # get the best buy and strong buy stock from Nasdaq.com and sort them by the best stocks
 
+        logger.info("Downloading data ...")
         from_watchlist = self.watchlist.get_universe()
-        stock_info = []
+        stock_info: List[ORBStock] = []
 
         for count, stock in enumerate(from_watchlist):
 
@@ -143,52 +155,55 @@ class OpeningRangeBreakout(Strategy):
                 continue
 
             stock_price = df.iloc[-1]['close']
-            if stock_price > LWModified.STOCK_MAX_PRICE or stock_price < LWModified.STOCK_MIN_PRICE:
+            if stock_price > ORBStrategy.STOCK_MAX_PRICE or stock_price < ORBStrategy.STOCK_MIN_PRICE:
                 continue
 
             df = self._get_stock_df(stock)
             df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-            increasing_atr = df.iloc[-1]['ATR'] > df.iloc[-2]['ATR']
+            increasing_atr = df.iloc[-1]['ATR'] > df.iloc[-2]['ATR'] > df.iloc[-3]['ATR']
+            atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
-            df['TEMA_5'] = talib.TEMA(df['close'], timeperiod=5)
-            df['TEMA_9'] = talib.TEMA(df['close'], timeperiod=9)
-            uptrend = df.iloc[-1]['TEMA_5'] > df.iloc[-1]['TEMA_9'] and df.iloc[-2]['TEMA_5'] > df.iloc[-2][
-                'TEMA_9']
+            # choose the most volatile stocks
+            if increasing_atr and 5 < atr_to_price < 10 and self.order_service.is_tradable(stock):
+                logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
+                lower_bound, upper_bound = self._get_opening_range(stock)
+                stock_info.append(ORBStock(stock, atr_to_price, lower_bound, upper_bound, upper_bound - lower_bound))
 
-            price_open = df.iloc[-1]['open']
-            price_close = df.iloc[-1]['close']
-            percent_change = round((price_close - price_open) / price_open * 100, 3)
+        stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
+        logger.info(f'Today\'s stock picks: {len(stock_picks)}')
+        [logger.info(f'{stock_pick}') for stock_pick in stock_picks]
 
-            todays_record = df.iloc[-1]
-            t_stock_open = todays_record['open']
-            t_stock_high = todays_record['high']
-            t_stock_low = todays_record['low']
-            y_stock_close = todays_record['close']
-
-            t_change = round((y_stock_close - t_stock_open) / t_stock_open * 100, 3)
-            t_range = t_stock_high - t_stock_low  # yesterday's range
-            step = round(t_range * 0.25, 3)
-
-            weightage = self._calculate_weightage(percent_change, t_change)
-            lw_lower_bound = round(stock_price - step, 3)
-            lw_upper_bound = round(stock_price + step, 3)
-
-            if increasing_atr and uptrend:
-                logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} moved {percent_change}% yesterday')
-                stock_info.append(
-                    LWStock(stock, t_change, percent_change, weightage, lw_lower_bound, lw_upper_bound, step))
-
-        biggest_movers = sorted(stock_info, key=lambda i: i.percent_change, reverse=True)
-        stock_picks = self._select_best(biggest_movers)
-        print('today\'s picks: ')
-        [print(stock_pick) for stock_pick in stock_picks]
-        print('\n')
         return stock_picks
 
-    @staticmethod
-    def _calculate_weightage(moved: float, change_low_to_market: float):
-        return moved + (change_low_to_market * 2)
+    def _get_stock_df(self, stock):
+        data_folder = "data"
+        today = date.today().isoformat()
+        df_path = Path("/".join([data_folder, today, stock + ".pkl"]))
+        df_path.parent.mkdir(parents=True, exist_ok=True)
 
-    @staticmethod
-    def _select_best(biggest_movers):
-        return [x for x in biggest_movers if x.yesterdays_change > 6]
+        if df_path.exists():
+            logger.info(f'data for {stock} exists locally')
+            df = pandas.read_pickle(df_path)
+        else:
+            df = self.data_service.get_bars_limit(stock, Timeframe.DAY, limit=ORBStrategy.BARSET_RECORDS)
+            # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
+            # df['net_change'] = 1 + (df['pct_change'] / 100)
+            # df['cum_change'] = df['net_change'].cumprod()
+            df.to_pickle(df_path)
+
+        return df
+
+    def _get_opening_range(self, symbol) -> Tuple[float, float]:
+        today = date.today().isoformat()
+        from_time = f'{today}T09:30:00-05:00'
+        until_time = f'{today}T10:15:00-05:00'
+        minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_15, from_time, until_time)
+        highs = minute_bars['high'].to_list()
+        lows = minute_bars['low'].to_list()
+        return min(lows), max(highs)
+
+    def _with_high_volume(self, symbol):
+        minute_bars = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 5)
+        volumes = minute_bars['volume'].to_list()
+        volume_mean = mean(volumes[:-1])
+        return volumes[-1] > volume_mean * 2.0

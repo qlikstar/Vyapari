@@ -32,10 +32,3 @@ class Telegram(object):
             message = message.replace(esc, f'\\{esc}')
 
         return message
-
-    # def fixed_width_message(self, message: str):
-    #     to_be_escaped = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-    #     for esc in to_be_escaped:
-    #         message = message.replace(esc, f'\\{esc}')
-    #
-    #     return f'`{message}`'

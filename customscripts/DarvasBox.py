@@ -27,7 +27,7 @@ class DarvasBox(object):
         if not df_path.exists():
             print("Downloading data for {} for {} days".format(symbol, self.lookback_days))
             if self.broker.is_tradable(symbol):
-                df: BarSet = self.broker.get_bars(symbol, Timeframe.DAY, limit=self.lookback_days)
+                df: BarSet = self.broker.get_bars_limit(symbol, Timeframe.DAY, limit=self.lookback_days)
                 df.to_pickle(df_path)
             else:
                 print("{} is not tradable with broker".format(symbol))

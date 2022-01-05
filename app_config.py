@@ -13,7 +13,7 @@ from services.notification_service import Pushover, Notification
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.util import load_env_variables
-from strategies.lw_modified_strategy import LWModified
+from strategies.lw_breakout_strategy import LWBreakout
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +31,17 @@ class AppConfig(object):
         self.watchlist = WatchList()
         self.initial_steps = InitialSteps()
         self.intermediate = Intermediate()
-        self.strategy = LWModified()
+        self.strategy = LWBreakout()
         self.cleanup = CleanUp()
         self.final_steps = FinalSteps()
 
-    def run_strategy(self, sleep_next_x_seconds, until_time):
+    def initialize(self):
+        logger.info("Initializing trader ...")
+        self.initial_steps.show_portfolio_details()
+        self.strategy.init_data()
 
+    def run_strategy(self, sleep_next_x_seconds, until_time):
         if self.broker.is_market_open():
-            self.initial_steps.show_portfolio_details()
-            self.strategy.initialize()
             self.strategy.run(sleep_next_x_seconds, until_time)
         else:
             logger.info("Market is closed today!")

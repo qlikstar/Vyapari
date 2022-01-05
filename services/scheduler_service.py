@@ -8,15 +8,14 @@ from time import sleep
 from kink import di
 
 from app_config import AppConfig
-from component.schedule import SafeScheduler, FrequencyTag
+from core.schedule import SafeScheduler, FrequencyTag
 
 logger = logging.getLogger(__name__)
 
-START_TRADING = "06:50"
-STOP_TRADING = "12:00"
-MARKET_CLOSE = "13:00"
-SLEEP_RUN_STRATEGY = 1
-SLEEP_SHOW_CURRENT = 10
+BEFORE_MARKET_OPEN = '06:30'
+START_TRADING = "07:01"
+STOP_TRADING = "11:55"
+MARKET_CLOSE = "12:00"
 
 
 # UNTIL_MARKET_CLOSE = datetime.strptime(MARKET_CLOSE, '%H:%M').time()
@@ -24,20 +23,24 @@ SLEEP_SHOW_CURRENT = 10
 
 class SchedulerService(object):
     def __init__(self):
-        self.app_config = di[AppConfig]
-        self.schedule = di[SafeScheduler]
+        self.app_config: AppConfig = di[AppConfig]
+        self.schedule: SafeScheduler = di[SafeScheduler]
         self.schedule.every(10).seconds.do(self.run_threaded, self.app_config.register_heartbeat) \
             .tag(FrequencyTag.HEARTBEAT)
 
-    def start(self, start_trading=START_TRADING):
+    def start(self):
         logger.info("Scheduling jobs... ")
 
         if self._is_within_valid_duration():
             self._run_jobs_once()
 
-        self.schedule.every().day.at(start_trading).do(self.app_config.run_strategy, 60,
+        ''' Run this when you need to download the data ONLY'''
+        # self._run_temp_job()
+
+        self.schedule.every().day.at(BEFORE_MARKET_OPEN).do(self.app_config.initialize).tag(FrequencyTag.DAILY)
+        self.schedule.every().day.at(START_TRADING).do(self.app_config.run_strategy, 60,
                                                        STOP_TRADING).tag(FrequencyTag.DAILY)
-        self.schedule.every().day.at(start_trading).do(self.app_config.show_current_holdings, 600,
+        self.schedule.every().day.at(START_TRADING).do(self.app_config.show_current_holdings, 600,
                                                        MARKET_CLOSE).tag(FrequencyTag.DAILY)
 
         self.schedule.every().day.at(STOP_TRADING).do(self.app_config.run_before_market_close).tag(FrequencyTag.DAILY)
@@ -92,3 +95,11 @@ class SchedulerService(object):
         if start_trading_time < current_time < stop_trading_time:
             return True
         return False
+
+    # def _run_temp_job(self):
+    #     now_plus_30 = datetime.now() + timedelta(seconds=61)
+    #     at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
+    #     logger.info(f"Temp run once jobs start at: {at_time}")
+    #
+    #     self.schedule.every().day.at(at_time).do(self.app_config.initialize).tag(FrequencyTag.DAILY)
+    #     return self.schedule.cancel_job

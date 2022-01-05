@@ -25,17 +25,12 @@ DROP TABLE IF EXISTS `account`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `account` (
-  `date` date NOT NULL,
-  `portfolio_value` decimal(12,2) DEFAULT NULL,
-  `buying_power` decimal(12,2) NOT NULL,
-  `equity` decimal(12,2) DEFAULT NULL,
-  `status` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `initial_margin` decimal(12,2) DEFAULT NULL,
-  `pattern_day_trader` tinyint NOT NULL,
-  `shorting_enabled` tinyint NOT NULL,
-  `created_at` timestamp NOT NULL,
-  `updated_at` timestamp NOT NULL,
-  PRIMARY KEY (`date`)
+  `run_date` date NOT NULL,
+  `initial_portfolio_value` decimal(12,2) NOT NULL,
+  `final_portfolio_value` decimal(12,2) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`run_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -98,6 +93,27 @@ CREATE TABLE `position` (
   PRIMARY KEY (`run_date`,`symbol`,`side`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `stock`
+--
+
+DROP TABLE IF EXISTS `stock`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `stock` (
+  `symbol` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `timeframe` varchar(5) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ohlcv_at` datetime NOT NULL,
+  `open` decimal(10,2) DEFAULT NULL,
+  `high` decimal(10,2) DEFAULT NULL,
+  `low` decimal(10,2) DEFAULT NULL,
+  `close` decimal(10,2) DEFAULT NULL,
+  `volume` bigint DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`symbol`,`timeframe`,`ohlcv_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -108,4 +124,4 @@ CREATE TABLE `position` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2022-01-03 23:29:16
+-- Dump completed on 2022-01-05 13:20:26

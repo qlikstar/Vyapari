@@ -24,8 +24,11 @@ class DataService(object):
     # TODO : get_barset has been deprecated use get_bars instead
     # self.api.get_bars('AAPL', TimeFrame.Day, start='2021-09-12', end="2021-09-21").df
     # However, this does not allow query for current date !!!
-    def get_bars(self, symbol: str, timeframe: Timeframe, limit: int) -> BarSet:
+    def get_bars_limit(self, symbol: str, timeframe: Timeframe, limit: int) -> BarSet:
         return self.api.get_barset(symbol, timeframe.value, limit).df[symbol]
+
+    def get_bars_from(self, symbol: str, timeframe: Timeframe, from_time: str, until_time: str) -> BarSet:
+        return self.api.get_barset(symbol, timeframe.value, start=from_time, until=until_time).df[symbol]
 
     def save_history(self, symbol, timeframe: Timeframe, limit: int = 252):
         pass

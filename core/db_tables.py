@@ -16,6 +16,17 @@ class BaseModel(Model):
         database = conn
 
 
+class AccountEntity(BaseModel):
+    run_date = DateField()
+    initial_portfolio_value = DecimalField(12, 2)
+    final_portfolio_value = DecimalField(12, 2)
+    created_at = DateTimeField()
+    updated_at = DateTimeField()
+
+    class Meta:
+        db_table = 'account'
+
+
 class OrderEntity(BaseModel):
     id = FixedCharField(40, unique=True, index=True)
     parent_id = FixedCharField(40)
@@ -65,3 +76,19 @@ class PositionEntity(BaseModel):
     class Meta:
         db_table = 'position'
         primary_key = CompositeKey('run_date', 'symbol', 'side')
+
+
+class StockEntity(BaseModel):
+    symbol = FixedCharField(max_length=10)
+    timeframe = FixedCharField(max_length=5)
+    ohlcv_at = DateTimeField()
+    open = DecimalField(10, 2)
+    high = DecimalField(10, 2)
+    low = DecimalField(10, 2)
+    close = DecimalField(10, 2)
+    volume = BigIntegerField()
+    created_at = DateTimeField()
+
+    class Meta:
+        db_table = 'stock'
+        primary_key = CompositeKey('symbol', 'timeframe', 'ohlcv_at')

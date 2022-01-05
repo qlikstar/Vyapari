@@ -9,8 +9,8 @@ from alpaca_trade_api.entity import Order, Position
 from alpaca_trade_api.rest import APIError
 from kink import inject, di
 
-from component.database import Database
-from component.db_tables import OrderEntity
+from core.database import Database
+from core.db_tables import OrderEntity
 from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,7 @@ class OrderService(object):
             logger.info(f"Placing order to {side}: {symbol} : {qty}")
             try:
                 order = self.api.submit_order(symbol, qty, side, "market", "gtc")
+                self.notification.notify("Market order to *{}*: *{}* shares of *{}* placed".format(side, qty, symbol))
                 return self._save_order(order)
             except APIError as api_error:
                 self.notification.err_notify(f"Order to {side}: {qty} shares of {symbol} "
@@ -80,7 +81,7 @@ class OrderService(object):
                                               take_profit={"limit_price": take_profit},
                                               stop_loss={"stop_price": stop_loss})
 
-                self.notification.notify("Bracket order to {}: {} shares of {} placed".format(side, qty, symbol))
+                self.notification.notify("Bracket order to *{}*: *{}* shares of *{}* placed".format(side, qty, symbol))
                 return self._save_order(order)
             except APIError as api_error:
                 self.notification.err_notify(f"Bracket order to {side}: {qty} shares of {symbol} "

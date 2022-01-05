@@ -2,7 +2,7 @@ from datetime import datetime
 
 from kink import inject, di
 
-from component.database import Database
+from core.database import Database
 from services.broker_service import Broker
 
 

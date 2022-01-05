@@ -4,8 +4,8 @@ import logging
 from abc import ABC
 from kink import inject, di
 
-from component.pushover import Pushover
-from component.telegram import Telegram
+from core.pushover import Pushover
+from core.telegram import Telegram
 
 logger = logging.getLogger(__name__)
 

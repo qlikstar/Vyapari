@@ -12,8 +12,8 @@ from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
 class WatchList(object):
     nasdaq = "https://api.nasdaq.com/api/screener/stocks?tableonly=true"
     no_of_stocks = 4000
-    stocks_type = ["mid", "small", "micro"]
-    recommendation_type = ["strong_buy", "buy"]
+    stocks_type = ["mega", "large", "mid"]
+    recommendation_type = ["strong_buy", "buy", "sell", "strong_sell"]
 
     def __init__(self):
         self.NASDAQ_API_URL = "&".join([WatchList.nasdaq, "=".join(["limit", str(WatchList.no_of_stocks)]),

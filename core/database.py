@@ -4,12 +4,30 @@ from typing import List
 
 from kink import inject
 
-from component.db_tables import OrderEntity, PositionEntity
+from core.db_tables import OrderEntity, PositionEntity, StockEntity, AccountEntity
 from datetime import date
 
 
 @inject
 class Database(object):
+
+    # *** Account ****
+
+    @staticmethod
+    def upsert_account(run_date, initial_portfolio_value: float, final_portfolio_value: float):
+        return AccountEntity.insert(run_date=run_date,
+                                    initial_portfolio_value=initial_portfolio_value,
+                                    final_portfolio_value=final_portfolio_value,
+                                    created_at=datetime.now(),
+                                    updated_at=datetime.now()) \
+            .on_conflict(preserve=[AccountEntity.run_date],
+                         update={AccountEntity.final_portfolio_value: final_portfolio_value,
+                                 AccountEntity.updated_at: datetime.now()}) \
+            .execute()
+
+    @staticmethod
+    def get_portfolio_history(limit: int = 10) -> List[AccountEntity]:
+        return list(AccountEntity.select().order_by(AccountEntity.created_at.desc()))[limit]
 
     # *** Orders ****
 
@@ -73,7 +91,7 @@ class Database(object):
 
     @staticmethod
     def get_open_orders() -> List[OrderEntity]:
-        return OrderEntity.select().where(~(OrderEntity.status << ['canceled', 'rejected', 'filled']))
+        return OrderEntity.select().where(~(OrderEntity.status << ['canceled', 'rejected', 'filled', 'replaced']))
 
     @staticmethod
     def get_all_orders(for_date: date) -> List[OrderEntity]:
@@ -160,3 +178,29 @@ class Database(object):
                          update={PositionEntity.market_price: market_price,
                                  PositionEntity.updated_at: datetime.now()}) \
             .execute()
+
+    # *** Stock ****
+
+    @staticmethod
+    def create_stock(symbol: str, timeframe: str, ohlcv_at: datetime, open: float,
+                     high: float, low: float, close: float, volume: int):
+        stock_object = StockEntity(
+            symbol=symbol,
+            timeframe=timeframe,
+            ohlcv_at=ohlcv_at,
+            open=open,
+            high=high,
+            low=low,
+            close=close,
+            volume=volume,
+            created_at=datetime.now()
+        )
+        stock_object.save()
+        return stock_object
+
+    @staticmethod
+    def get_stock_data(symbol: str, timeframe: str, from_time: datetime, to_time: datetime) -> List[StockEntity]:
+        return list(StockEntity.select()
+                    .filter(StockEntity.symbol == symbol, StockEntity.timeframe == timeframe)
+                    .between(from_time, to_time)
+                    .order_by(StockEntity.ohlcv_at))

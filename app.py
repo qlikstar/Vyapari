@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from kink import di
 
 from app_config import AppConfig
-from component.db_tables import conn
+from core.db_tables import conn
 from services.scheduler_service import SchedulerService
 
 logger = logging.getLogger(__name__)

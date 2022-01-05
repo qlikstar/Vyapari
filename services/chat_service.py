@@ -11,8 +11,8 @@ from alpaca_trade_api.entity import Account
 from fastapi import Request
 from kink import di, inject
 
-from component.db_tables import OrderEntity
-from component.telegram import Telegram
+from core.db_tables import OrderEntity
+from core.telegram import Telegram
 from services.account_service import AccountService
 from services.data_service import DataService
 from services.order_service import OrderService
@@ -91,6 +91,7 @@ class CommandResponse(object):
                 "*/current    :* `Show current open positions`\n"
                 "*/unrealized :* `Shows current unrealized profit or loss`\n"
                 "*/balance  :* `Show account balance`\n"
+                "*/history  :* `Shows Portfolio history`\n"
                 "*/help     :* `This help message`\n"
                 "*/version  :* `Show version`")
 
@@ -155,9 +156,14 @@ class CommandResponse(object):
 
     def current(self) -> str:
         total_unrealized_pl = 0
+        all_positions = self.position_service.get_all_positions()
+
+        if len(all_positions) == 0:
+            return '`*** No current positions found ***`'
+
         resp = "`Sl Symbol  Price    Gain    Gain% `\n"
         resp = resp + "`---------------------------------`\n"
-        for count, position in enumerate(self.position_service.get_all_positions()):
+        for count, position in enumerate(all_positions):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             resp = resp + (
                 f"`{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):<8}`"
@@ -180,6 +186,10 @@ class CommandResponse(object):
             f"`----------------------------`\n"
             f"`Portfolio Value  : ${portfolio_value:8,.2f}`\n"
         )
+
+    # def history(self) -> str:
+    #     portfolio_hist: List[AccountEntity] = self.account_service.get_portfolio_history()
+    #     return portfolio_hist[0].initial_portfolio_value
 
     def _get_all_balanced_positions(self) -> (List[StockPerf], List[StockPerf]):
         all_orders: List[OrderEntity] = self.order_service.get_all_filled_orders_ever()
