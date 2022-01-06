@@ -146,7 +146,7 @@ class LWBreakout(object):
             lw_upper_bound = round(stock_price + step)
 
             # choose the most volatile stocks
-            if increasing_atr and 5 < atr_to_price < 10 and self.order_service.is_tradable(stock):
+            if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
                 logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
                 stock_info.append(
                     LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))

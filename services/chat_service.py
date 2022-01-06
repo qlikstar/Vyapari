@@ -145,13 +145,13 @@ class CommandResponse(object):
             unrealized_profit = item.market_value - item.cost_basis
             unrealized_profit_percent = (unrealized_profit / item.market_value) * 100
             resp = resp + f'{item.close_date}   {item.symbol:<5}   {item.side:<5}  ${float(item.cost_basis):8.2f} ' \
-                          f'${float(unrealized_profit):+8.2f} {float(unrealized_profit_percent):+4.2f}%\n'
+                          f'${float(unrealized_profit): 8.2f} {float(unrealized_profit_percent): 4.2f}%\n'
             total_unrealized_profit = total_unrealized_profit + unrealized_profit
             total_investment = total_investment + item.market_value
 
         percentage_profit = (total_unrealized_profit / total_investment) * 100
         resp = resp + f'--------------------------------------------------------\n'
-        resp = resp + f'Total Unrealized P/L : ${total_unrealized_profit:+8.2f} ({percentage_profit:+4.2f}%)```'
+        resp = resp + f'Total Unrealized P/L : ${total_unrealized_profit: 8.2f} ({percentage_profit: 4.2f}%)```'
         return resp.replace('$-', '-$')
 
     def current(self) -> str:
@@ -166,13 +166,13 @@ class CommandResponse(object):
         for count, position in enumerate(all_positions):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             resp = resp + (
-                f"{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):8.2f}"
-                f"{float(position.unrealized_pl):+8.2f}"
-                f"{float(position.unrealized_plpc) * 100:+.2f}%\n"
+                f"{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):.2f}"
+                f"{float(position.unrealized_pl): .2f} "
+                f"{float(position.unrealized_plpc) * 100: .2f}%\n"
             )
 
         resp = resp + "---------------------------------\n"
-        resp = resp + f"Total unrealized P/L: ${total_unrealized_pl:+.2f}```"
+        resp = resp + f"Total unrealized P/L: ${total_unrealized_pl: .2f}```"
         return resp.replace('$-', '-$')
 
     def balance(self) -> str:
@@ -198,7 +198,7 @@ class CommandResponse(object):
             run_date = date(item.run_date.year, item.run_date.month, item.run_date.day).strftime("%b %d %Y")
             gain = item.final_portfolio_value - item.initial_portfolio_value
             gain_percentage = float((gain / item.initial_portfolio_value) * 100)
-            resp = resp + f"{run_date}  ${item.initial_portfolio_value:9.2f} {gain: 5.2f} {gain_percentage: 4.2f}%"
+            resp = resp + f"{run_date}  ${item.initial_portfolio_value:.2f} {gain: 6.2f} {gain_percentage: 4.2f}%\n"
         return resp + "```"
 
     def _get_all_balanced_positions(self) -> (List[StockPerf], List[StockPerf]):

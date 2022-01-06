@@ -18,7 +18,8 @@ class AccountService(object):
 
     def get_account_details(self) -> Account:
         account: Account = self.api.get_account()
-        self.db.upsert_account(datetime.date(datetime.today()), account.portfolio_value, account.portfolio_value)
+        self.db.upsert_account(datetime.date(datetime.today()),
+                               float(account.portfolio_value), float(account.portfolio_value))
         return account
 
     def get_portfolio_history(self) -> List[AccountEntity]:

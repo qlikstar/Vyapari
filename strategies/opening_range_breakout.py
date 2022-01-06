@@ -164,7 +164,7 @@ class ORBStrategy(Strategy):
             atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
             # choose the most volatile stocks
-            if increasing_atr and 5 < atr_to_price < 10 and self.order_service.is_tradable(stock):
+            if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
                 logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
                 lower_bound, upper_bound = self._get_opening_range(stock)
                 stock_info.append(ORBStock(stock, atr_to_price, lower_bound, upper_bound, upper_bound - lower_bound))
