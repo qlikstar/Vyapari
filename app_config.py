@@ -9,11 +9,11 @@ from scheduled_jobs.initial_steps import InitialSteps
 from scheduled_jobs.intermediate import Intermediate
 from scheduled_jobs.watchlist import WatchList
 from services.broker_service import AlpacaClient
-from services.notification_service import Pushover, Notification
+from services.notification_service import Notification
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.util import load_env_variables
-from strategies.lw_breakout_strategy import LWBreakout
+from strategies.opening_range_breakout import ORBStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class AppConfig(object):
         self.watchlist = WatchList()
         self.initial_steps = InitialSteps()
         self.intermediate = Intermediate()
-        self.strategy = LWBreakout()
+        self.strategy = ORBStrategy()
         self.cleanup = CleanUp()
         self.final_steps = FinalSteps()
 
