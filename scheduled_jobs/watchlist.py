@@ -1,3 +1,4 @@
+import logging
 import time
 from random import randint
 from typing import List
@@ -7,6 +8,7 @@ import requests
 from kink import inject
 from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
 
+logger = logging.getLogger(__name__)
 
 @inject
 class WatchList(object):
@@ -24,13 +26,20 @@ class WatchList(object):
     def get_universe(self) -> List[str]:
 
         # for stock_type in self.stock_types:
-        print("Fetching the best {} {} recommended {} stocks from NASDAQ"
+        logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
               .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
         data = self._get_nasdaq_buy_stocks()
         nasdaq_records = data['data']['table']['rows']
         all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
-        print("Stocks from NASDAQ: ", all_stocks)
+        logger.info("Stocks from NASDAQ: ", all_stocks)
+        all_stocks.extend(self.get_high_vol_etfs())
         return all_stocks
+
+    @staticmethod
+    def get_high_vol_etfs() -> List[str]:
+        return ['SQQQ', 'SPY', 'XLF', 'QQQ', 'TQQQ', 'UVXY', 'VXX', 'EEM', 'IWM', 'XLE', 'FXI', 'EWZ', 'HYG', 'EFA',
+                'SLV', 'SDS', 'SOXS', 'GDX', 'TLT', 'KWEB', 'SOXL', 'LQD', 'SPXU', 'TZA', 'IEMG', 'XLU', 'VWO', 'XLV',
+                'XLP', 'VEA', 'KOLD', 'XLI', 'XLK', 'IAU', 'TNA', 'QID', 'JETS', 'IEF']
 
     def _get_nasdaq_buy_stocks(self):
         # api used by https://www.nasdaq.com/market-activity/stocks/screener

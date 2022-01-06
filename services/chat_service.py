@@ -11,7 +11,7 @@ from alpaca_trade_api.entity import Account
 from fastapi import Request
 from kink import di, inject
 
-from core.db_tables import OrderEntity
+from core.db_tables import OrderEntity, AccountEntity
 from core.telegram import Telegram
 from services.account_service import AccountService
 from services.data_service import DataService
@@ -115,19 +115,19 @@ class CommandResponse(object):
 
         total_realized_profit = 0
         total_investment = 0
-        resp = "`Date          Symbol  Invested  Gain       Gain%`\n"
-        resp = resp + "`-------------------------------------------------`\n"
+        resp = "```\nDate         Symb  Inv.Amt  Gain    Gain%\n"
+        resp = resp + "-----------------------------------------\n"
         for item in realized_profit_list:
             realized_profit = item.market_value - item.cost_basis
             percentage_profit = (realized_profit / item.investment) * 100
-            resp = resp + f'`{item.close_date}   {item.symbol:<5}   ${float(item.investment):<8.2f} ' \
-                          f'${float(realized_profit):<8}  {float(percentage_profit):<4.2f}%`\n'
+            resp = resp + f'{item.close_date}  {item.symbol:<5} {float(item.investment):0>6.2f}  ' \
+                          f'{float(realized_profit): 5.2f}  {float(percentage_profit): 4.2f}%\n'
             total_realized_profit = total_realized_profit + realized_profit
             total_investment = total_investment + item.investment
 
         percentage_profit = (total_realized_profit / total_investment) * 100
-        resp = resp + f'`-------------------------------------------------`\n'
-        resp = resp + f'`Total Realized P/L : ${total_realized_profit:8,.2f} ({percentage_profit:4.2f}%)`'
+        resp = resp + f'-----------------------------------------\n'
+        resp = resp + f'Total Realized P/L : ${total_realized_profit:8,.2f} ({percentage_profit:4.2f}%)```'
         return resp.replace('$-', '-$')
 
     def unrealized(self) -> str:
@@ -138,20 +138,20 @@ class CommandResponse(object):
 
         total_investment = 0
         total_unrealized_profit = 0
-        resp = "`Date          Symbol  Side   Invested  UGain     UGain%`\n"
-        resp = resp + "`--------------------------------------------------------`\n"
+        resp = "```\nDate          Symbol  Side   Invested  UGain     UGain%\n"
+        resp = resp + "--------------------------------------------------------\n"
         for item in unrealized_profit_list:
 
             unrealized_profit = item.market_value - item.cost_basis
             unrealized_profit_percent = (unrealized_profit / item.market_value) * 100
-            resp = resp + f'`{item.close_date}   {item.symbol:<5}   {item.side:<5}  ${float(item.cost_basis):<8.2f} ' \
-                          f'${float(unrealized_profit):<8.2f} {float(unrealized_profit_percent):<4.2f}%`\n'
+            resp = resp + f'{item.close_date}   {item.symbol:<5}   {item.side:<5}  ${float(item.cost_basis):8.2f} ' \
+                          f'${float(unrealized_profit):+8.2f} {float(unrealized_profit_percent):+4.2f}%\n'
             total_unrealized_profit = total_unrealized_profit + unrealized_profit
             total_investment = total_investment + item.market_value
 
         percentage_profit = (total_unrealized_profit / total_investment) * 100
-        resp = resp + f'`--------------------------------------------------------`\n'
-        resp = resp + f'`Total Unrealized P/L : ${total_unrealized_profit:8.2f} ({percentage_profit:4.2f}%)`'
+        resp = resp + f'--------------------------------------------------------\n'
+        resp = resp + f'Total Unrealized P/L : ${total_unrealized_profit:+8.2f} ({percentage_profit:+4.2f}%)```'
         return resp.replace('$-', '-$')
 
     def current(self) -> str:
@@ -161,18 +161,18 @@ class CommandResponse(object):
         if len(all_positions) == 0:
             return '`*** No current positions found ***`'
 
-        resp = "`Sl Symbol  Price    Gain    Gain% `\n"
-        resp = resp + "`---------------------------------`\n"
+        resp = "```\nSl Symbol  Price    Gain    Gain%\n"
+        resp = resp + "---------------------------------\n"
         for count, position in enumerate(all_positions):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             resp = resp + (
-                f"`{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):<8}`"
-                f"`{float(position.unrealized_pl):<8}`"
-                f"`{float(position.unrealized_plpc) * 100:.2f}%`\n"
+                f"{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):8.2f}"
+                f"{float(position.unrealized_pl):+8.2f}"
+                f"{float(position.unrealized_plpc) * 100:+.2f}%\n"
             )
 
-        resp = resp + "`---------------------------------`\n"
-        resp = resp + f"`Total unrealized P/L: ${total_unrealized_pl:.2f}`\n"
+        resp = resp + "---------------------------------\n"
+        resp = resp + f"Total unrealized P/L: ${total_unrealized_pl:+.2f}```"
         return resp.replace('$-', '-$')
 
     def balance(self) -> str:
@@ -181,15 +181,25 @@ class CommandResponse(object):
         portfolio_value: float = float(acc_details.portfolio_value)
         invested_amount: float = portfolio_value - actual_remaining_balance
         return (
-            f"`Remaining Balance: ${actual_remaining_balance:8,.2f}`\n"
-            f"`Invested Amount  : ${invested_amount:8,.2f}`\n"
-            f"`----------------------------`\n"
-            f"`Portfolio Value  : ${portfolio_value:8,.2f}`\n"
+            f"```\n"
+            f"Remaining Balance: ${actual_remaining_balance:9,.2f}\n"
+            f"Invested Amount  : ${invested_amount:9,.2f}\n"
+            f"----------------------------\n"
+            f"Portfolio Value  : ${portfolio_value:9,.2f}"
+            f"```\n"
         )
 
-    # def history(self) -> str:
-    #     portfolio_hist: List[AccountEntity] = self.account_service.get_portfolio_history()
-    #     return portfolio_hist[0].initial_portfolio_value
+    def history(self) -> str:
+        portfolio_hist: List[AccountEntity] = self.account_service.get_portfolio_history()
+
+        resp = "```\nDate         Investment  Gain     Gain%\n"
+        resp = resp + "---------------------------------------\n"
+        for item in portfolio_hist[::-1]:
+            run_date = date(item.run_date.year, item.run_date.month, item.run_date.day).strftime("%b %d %Y")
+            gain = item.final_portfolio_value - item.initial_portfolio_value
+            gain_percentage = float((gain / item.initial_portfolio_value) * 100)
+            resp = resp + f"{run_date}  ${item.initial_portfolio_value:9.2f} {gain: 5.2f} {gain_percentage: 4.2f}%"
+        return resp + "```"
 
     def _get_all_balanced_positions(self) -> (List[StockPerf], List[StockPerf]):
         all_orders: List[OrderEntity] = self.order_service.get_all_filled_orders_ever()

@@ -17,7 +17,7 @@ class BaseModel(Model):
 
 
 class AccountEntity(BaseModel):
-    run_date = DateField()
+    run_date = DateField(primary_key=True)
     initial_portfolio_value = DecimalField(12, 2)
     final_portfolio_value = DecimalField(12, 2)
     created_at = DateTimeField()

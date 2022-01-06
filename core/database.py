@@ -27,7 +27,7 @@ class Database(object):
 
     @staticmethod
     def get_portfolio_history(limit: int = 10) -> List[AccountEntity]:
-        return list(AccountEntity.select().order_by(AccountEntity.created_at.desc()))[limit]
+        return list(AccountEntity.select().order_by(AccountEntity.created_at.desc()).limit(limit))
 
     # *** Orders ****
 
