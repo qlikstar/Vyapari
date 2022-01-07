@@ -42,10 +42,11 @@ class LWBreakout(object):
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
     MOVED_DAYS = 3
-    BARSET_RECORDS = 20
+    BARSET_RECORDS = 30
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
+    MAX_STOCK_WATCH_COUNT = 100
 
     def __init__(self):
         self.name = "LWBreakout"
@@ -128,8 +129,12 @@ class LWBreakout(object):
                 continue
 
             df = self._get_stock_df(stock)
+
             df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-            increasing_atr = df.iloc[-1]['ATR'] > df.iloc[-2]['ATR'] > df.iloc[-3]['ATR']
+            df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=5)
+            df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=9)
+            increasing_atr: bool = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                                   and df.iloc[-3]['ATR-slope-fast'] > df.iloc[-3]['ATR-slope-slow']
             atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
             yesterdays_record = df.iloc[-1]
@@ -155,7 +160,7 @@ class LWBreakout(object):
         logger.info(f'Today\'s stock picks: {len(stock_picks)}')
         [logger.info(f'{stock_pick}') for stock_pick in stock_picks]
 
-        return stock_picks
+        return stock_picks[:LWBreakout.MAX_STOCK_WATCH_COUNT]
 
     def _get_stock_df(self, stock):
         data_folder = "data"

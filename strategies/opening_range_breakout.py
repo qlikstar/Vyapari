@@ -63,10 +63,11 @@ class ORBStrategy(Strategy):
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
     MOVED_DAYS = 3
-    BARSET_RECORDS = 20
+    BARSET_RECORDS = 30
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
+    MAX_STOCK_WATCH_COUNT = 100
 
     def __init__(self):
         self.name = "OpeningRangeBreakoutStrategy"
@@ -76,6 +77,7 @@ class ORBStrategy(Strategy):
         self.schedule: SafeScheduler = di[SafeScheduler]
         self.data_service: DataService = di[DataService]
 
+        self.pre_stock_picks: List[ORBStock] = []
         self.todays_stock_picks: List[ORBStock] = []
         self.stocks_traded_today: List[str] = []
 
@@ -93,10 +95,11 @@ class ORBStrategy(Strategy):
 
     def init_data(self) -> None:
         self.stocks_traded_today = []
-        self.todays_stock_picks = self._get_todays_picks()
+        self.pre_stock_picks = self._get_pre_stock_picks()
 
     def run(self, sleep_next_x_seconds, until_time):
         self.order_service.close_all()
+        self.populate_opening_range()
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
@@ -141,7 +144,17 @@ class ORBStrategy(Strategy):
                                                                stop_loss, take_profit)
                         self.stocks_traded_today.append(stock.symbol)
 
-    def _get_todays_picks(self) -> List[ORBStock]:
+    def populate_opening_range(self) -> None:
+        for stock_pick in self.todays_stock_picks:
+            opening_bounds = self._get_opening_bounds(stock_pick.symbol)
+            if len(opening_bounds) == 2:
+                lower_bound, upper_bound = opening_bounds
+                o_range = upper_bound - lower_bound
+                orb_stock = ORBStock(stock_pick.symbol, stock_pick.atr_to_price, lower_bound, upper_bound, o_range)
+                logger.info(f"Today's final stock picks: {orb_stock}")
+                self.todays_stock_picks.append(orb_stock)
+
+    def _get_pre_stock_picks(self) -> List[ORBStock]:
         # get the best buy and strong buy stock from Nasdaq.com and sort them by the best stocks
 
         logger.info("Downloading data ...")
@@ -160,20 +173,22 @@ class ORBStrategy(Strategy):
 
             df = self._get_stock_df(stock)
             df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-            increasing_atr = df.iloc[-1]['ATR'] > df.iloc[-2]['ATR'] > df.iloc[-3]['ATR']
+            df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=5)
+            df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=9)
+            increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                             and df.iloc[-3]['ATR-slope-fast'] > df.iloc[-3]['ATR-slope-slow']
             atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
             # choose the most volatile stocks
-            if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
+            if increasing_atr and atr_to_price > 4 and self.order_service.is_tradable(stock):
                 logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
-                lower_bound, upper_bound = self._get_opening_range(stock)
-                stock_info.append(ORBStock(stock, atr_to_price, lower_bound, upper_bound, upper_bound - lower_bound))
+                stock_info.append(ORBStock(stock, atr_to_price, 0, 0, 0))
 
-        stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
-        logger.info(f'Today\'s stock picks: {len(stock_picks)}')
-        [logger.info(f'{stock_pick}') for stock_pick in stock_picks]
+        pre_stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
+        logger.info(f"Today's pre-stock picks: {len(pre_stock_picks)}")
+        [logger.info(f'{stock_pick}') for stock_pick in pre_stock_picks]
 
-        return stock_picks
+        return pre_stock_picks[:ORBStrategy.MAX_STOCK_WATCH_COUNT]
 
     def _get_stock_df(self, stock):
         data_folder = "data"
@@ -193,14 +208,18 @@ class ORBStrategy(Strategy):
 
         return df
 
-    def _get_opening_range(self, symbol) -> Tuple[float, float]:
+    def _get_opening_bounds(self, symbol) -> List[float]:
         today = date.today().isoformat()
         from_time = f'{today}T09:30:00-05:00'
         until_time = f'{today}T10:15:00-05:00'
         minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_15, from_time, until_time)
         highs = minute_bars['high'].to_list()
         lows = minute_bars['low'].to_list()
-        return min(lows), max(highs)
+
+        if len(highs) >= 2 and len(lows) >= 2:
+            return [min(lows), max(highs)]
+        logger.warning(f"Record count of 15 min bars is lesser than threshold for : {symbol}")
+        return []
 
     def _with_high_volume(self, symbol):
         minute_bars = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 5)

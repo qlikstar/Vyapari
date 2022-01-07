@@ -115,13 +115,14 @@ class CommandResponse(object):
 
         total_realized_profit = 0
         total_investment = 0
-        resp = "```\nDate         Symb  Inv.Amt  Gain    Gain%\n"
+        resp = "```\nDate         Symb  Inv.Amt  Gain   Gain%\n"
         resp = resp + "-----------------------------------------\n"
         for item in realized_profit_list:
             realized_profit = item.market_value - item.cost_basis
             percentage_profit = (realized_profit / item.investment) * 100
-            resp = resp + f'{item.close_date}  {item.symbol:<5} {float(item.investment):0>6.2f}  ' \
-                          f'{float(realized_profit): 5.2f}  {float(percentage_profit): 4.2f}%\n'
+            resp = resp + f'{item.close_date}  {item.symbol:<4}  {float(item.investment):7.2f} ' \
+                          f'{float(realized_profit): 6.2f}{float(percentage_profit): 6.2f}%\n'
+
             total_realized_profit = total_realized_profit + realized_profit
             total_investment = total_investment + item.investment
 
