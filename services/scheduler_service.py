@@ -81,7 +81,7 @@ class SchedulerService(object):
         at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
         logger.info(f"Run once jobs start at: {at_time}")
 
-        self.schedule.every().day.at(at_time).do(self.app_config.run_strategy, 60, STOP_TRADING) \
+        self.schedule.every().day.at(at_time).do(self.app_config.initialize_and_run, 60, STOP_TRADING) \
             .tag(FrequencyTag.DAILY)
         self.schedule.every().day.at(at_time).do(self.app_config.show_current_holdings, 600, MARKET_CLOSE) \
             .tag(FrequencyTag.DAILY)

@@ -50,30 +50,31 @@ class OrderService(object):
         military_time_now = (now.hour * 100) + now.minute
         return now.weekday() < 5 and 630 <= military_time_now < 1300
 
-    def market_buy(self, symbol, qty):
+    def market_buy(self, symbol: str, qty: int):
         return self._place_market_order(symbol, qty, "buy")
 
-    def market_sell(self, symbol, qty):
+    def market_sell(self, symbol: str, qty: int):
         return self._place_market_order(symbol, qty, "sell")
 
     def _place_market_order(self, symbol, qty, side) -> List[OrderEntity]:
         if self.is_market_open():
 
-            logger.info(f"Placing order to {side}: {symbol} : {qty}")
+            logger.info(f"Placing market order to {side}: {symbol} : {qty}")
             try:
                 order = self.api.submit_order(symbol, qty, side, "market", "gtc")
                 self.notification.notify("Market order to *{}*: *{}* shares of *{}* placed".format(side, qty, symbol))
                 return self._save_order(order)
             except APIError as api_error:
-                self.notification.err_notify(f"Order to {side}: {qty} shares of {symbol} "
+                self.notification.err_notify(f"Market rder to {side}: {qty} shares of {symbol} "
                                              f"could not be placed: {api_error}")
             except Exception as ex:
                 logger.error(f"Error while placing bracket order: {ex}")
         else:
             logger.info(f"{side} Order could not be placed ...Market is NOT open.. !")
 
-    def place_bracket_order(self, symbol, side, qty, stop_loss, take_profit) -> List[OrderEntity]:
-        logger.info("Placing bracket order to {}: {} shares of {} -> ".format(side, qty, symbol))
+    def place_bracket_order(self, symbol: str, side: str, qty: int,
+                            stop_loss: float, take_profit: float) -> List[OrderEntity]:
+        logger.info("Placing bracket order to {}: {} shares of {}".format(side, qty, symbol))
         if self.is_market_open():
             try:
                 order = self.api.submit_order(symbol, qty, side, "market", "gtc",
@@ -92,9 +93,27 @@ class OrderService(object):
         else:
             logger.info("Order to {} could not be placed ...Market is NOT open.. !".format(side))
 
-    def place_trailing_stop_order(self):
-        # TODO: Implement this
-        pass
+    def place_trailing_bracket_order(self, symbol: str, side: str, qty: int,  trail_percent: float) -> None:
+        if self.is_market_open():
+
+            logger.info(f"Placing trailing stop order to {side}: {symbol} : {qty} with {trail_percent}%")
+            trailing_side = 'sell' if side == 'buy' else 'buy'
+
+            try:
+                self.order_service.market_sell(symbol, qty)
+                order = self.api.submit_order(symbol, qty, trailing_side, type='trailing_stop',
+                                              trail_percent=str(trail_percent), time_in_force='gtc')
+                self.notification.notify("Trailing bracket order to *{}*: *{}* shares of *{}* with {}% placed"
+                                         .format(trailing_side, qty, symbol, trail_percent))
+                self._save_order(order)
+            except APIError as api_error:
+                # TODO: Handle if one request succeeds and other fails
+                self.notification.err_notify(f"Trailing bracket order to {trailing_side}: {qty} shares of {symbol} "
+                                             f"could not be placed: {api_error}")
+            except Exception as ex:
+                logger.error(f"Error while placing trailing bracket order: {ex}")
+        else:
+            logger.info(f"{side} Trailing bracket order could not be placed ...Market is NOT open.. !")
 
     def get_order(self, order_id: str) -> OrderEntity:
         return self.db.get_by_id(order_id)

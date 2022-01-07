@@ -68,6 +68,7 @@ class ORBStrategy(Strategy):
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
     MAX_STOCK_WATCH_COUNT = 100
+    TRAIL_PERCENT = 2.00
 
     def __init__(self):
         self.name = "OpeningRangeBreakoutStrategy"
@@ -124,11 +125,9 @@ class ORBStrategy(Strategy):
                     if stock.upper_bound < current_market_price and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price - stock.range
-                        take_profit = current_market_price + stock.range
 
-                        self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
-                                                               stop_loss, take_profit)
+                        self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares,
+                                                                        ORBStrategy.TRAIL_PERCENT)
                         self.stocks_traded_today.append(stock.symbol)
 
                     # short
@@ -137,15 +136,13 @@ class ORBStrategy(Strategy):
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price + stock.range
-                        take_profit = current_market_price - stock.range
 
-                        self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
-                                                               stop_loss, take_profit)
+                        self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares,
+                                                                        ORBStrategy.TRAIL_PERCENT)
                         self.stocks_traded_today.append(stock.symbol)
 
     def populate_opening_range(self) -> None:
-        for stock_pick in self.todays_stock_picks:
+        for stock_pick in self.pre_stock_picks:
             opening_bounds = self._get_opening_bounds(stock_pick.symbol)
             if len(opening_bounds) == 2:
                 lower_bound, upper_bound = opening_bounds
@@ -212,13 +209,13 @@ class ORBStrategy(Strategy):
         today = date.today().isoformat()
         from_time = f'{today}T09:30:00-05:00'
         until_time = f'{today}T10:15:00-05:00'
-        minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_15, from_time, until_time)
+        minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_5, from_time, until_time)
         highs = minute_bars['high'].to_list()
         lows = minute_bars['low'].to_list()
 
         if len(highs) >= 2 and len(lows) >= 2:
             return [min(lows), max(highs)]
-        logger.warning(f"Record count of 15 min bars is lesser than threshold for : {symbol}")
+        logger.warning(f"Record count of 5 min bars is lesser than threshold for : {symbol}")
         return []
 
     def _with_high_volume(self, symbol):

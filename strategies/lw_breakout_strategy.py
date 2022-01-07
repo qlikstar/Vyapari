@@ -153,8 +153,7 @@ class LWBreakout(object):
             # choose the most volatile stocks
             if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
                 logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
-                stock_info.append(
-                    LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))
+                stock_info.append(LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))
 
         stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
         logger.info(f'Today\'s stock picks: {len(stock_picks)}')

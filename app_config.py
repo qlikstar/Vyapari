@@ -9,7 +9,7 @@ from scheduled_jobs.initial_steps import InitialSteps
 from scheduled_jobs.intermediate import Intermediate
 from scheduled_jobs.watchlist import WatchList
 from services.broker_service import AlpacaClient
-from services.notification_service import Pushover, Notification
+from services.notification_service import Notification
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.util import load_env_variables
@@ -45,6 +45,10 @@ class AppConfig(object):
             self.strategy.run(sleep_next_x_seconds, until_time)
         else:
             logger.info("Market is closed today!")
+
+    def initialize_and_run(self, sleep_next_x_seconds, until_time):
+        self.initialize()
+        self.run_strategy(sleep_next_x_seconds, until_time)
 
     def show_current_holdings(self, sleep_next_x_seconds, until_time):
         if self.broker.is_market_open():

@@ -27,11 +27,11 @@ class WatchList(object):
 
         # for stock_type in self.stock_types:
         logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
-              .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
+                    .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
         data = self._get_nasdaq_buy_stocks()
         nasdaq_records = data['data']['table']['rows']
         all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
-        logger.info("Stocks from NASDAQ: ", all_stocks)
+        logger.info(f"All Stocks: {all_stocks}")
         all_stocks.extend(self.get_high_vol_etfs())
         return all_stocks
 
