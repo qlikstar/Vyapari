@@ -3,7 +3,6 @@ import logging
 from kink import di, inject
 
 from services.account_service import AccountService
-from services.broker_service import Broker
 from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)

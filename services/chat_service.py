@@ -107,30 +107,6 @@ class CommandResponse(object):
     def health() -> str:
         return "Not Implemented yet!"
 
-    def performance(self) -> str:
-        realized_profit_list, unrealized_profit_list = self._get_all_balanced_positions()
-
-        if len(realized_profit_list) == 0:
-            return '`*** No closed positions found ***`'
-
-        total_realized_profit = 0
-        total_investment = 0
-        resp = "```\nDate         Symb  Inv.Amt  Gain   Gain%\n"
-        resp = resp + "-----------------------------------------\n"
-        for item in realized_profit_list:
-            realized_profit = item.market_value - item.cost_basis
-            percentage_profit = (realized_profit / item.investment) * 100
-            resp = resp + f'{item.close_date}  {item.symbol:<4}  {float(item.investment):7.2f} ' \
-                          f'{float(realized_profit): 6.2f}{float(percentage_profit): 6.2f}%\n'
-
-            total_realized_profit = total_realized_profit + realized_profit
-            total_investment = total_investment + item.investment
-
-        percentage_profit = (total_realized_profit / total_investment) * 100
-        resp = resp + f'-----------------------------------------\n'
-        resp = resp + f'Total Realized P/L : ${total_realized_profit:8,.2f} ({percentage_profit:4.2f}%)```'
-        return resp.replace('$-', '-$')
-
     def unrealized(self) -> str:
         realized_profit_list, unrealized_profit_list = self._get_all_balanced_positions()
 
@@ -155,6 +131,30 @@ class CommandResponse(object):
         resp = resp + f'Total Unrealized P/L : ${total_unrealized_profit: 8.2f} ({percentage_profit: 4.2f}%)```'
         return resp.replace('$-', '-$')
 
+    def performance(self) -> str:
+        realized_profit_list, unrealized_profit_list = self._get_all_balanced_positions()
+
+        if len(realized_profit_list) == 0:
+            return '`*** No closed positions found ***`'
+
+        total_realized_profit = 0
+        total_investment = 0
+        resp = "```\nDate         Symb  Inv.Amt  Gain   Gain%\n"
+        resp = resp + "-----------------------------------------\n"
+        for item in realized_profit_list:
+            realized_profit = item.market_value - item.cost_basis
+            percentage_profit = (realized_profit / item.investment) * 100
+            resp = resp + f'{item.close_date}  {item.symbol:<4}  {float(item.investment):7.2f} ' \
+                          f'{float(realized_profit): 6.2f}{float(percentage_profit): 6.2f}%\n'
+
+            total_realized_profit = total_realized_profit + realized_profit
+            total_investment = total_investment + item.investment
+
+        percentage_profit = (total_realized_profit / total_investment) * 100
+        resp = resp + f'-----------------------------------------\n'
+        resp = resp + f'Total Realized P/L : ${total_realized_profit:8,.2f} ({percentage_profit:4.2f}%)```'
+        return resp.replace('$-', '-$')
+
     def current(self) -> str:
         total_unrealized_pl = 0
         all_positions = self.position_service.get_all_positions()
@@ -167,9 +167,9 @@ class CommandResponse(object):
         for count, position in enumerate(all_positions):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             resp = resp + (
-                f"{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):.2f}"
-                f"{float(position.unrealized_pl): .2f} "
-                f"{float(position.unrealized_plpc) * 100: .2f}%\n"
+                f"{(count + 1):<2} {position.symbol:<5}  ${float(position.current_price):7.2f} "
+                f"{float(position.unrealized_pl): 6.2f} "
+                f"{float(position.unrealized_plpc) * 100: 6.2f}%\n"
             )
 
         resp = resp + "---------------------------------\n"

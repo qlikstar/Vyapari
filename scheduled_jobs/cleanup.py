@@ -1,8 +1,9 @@
-from kink import di
+from kink import di, inject
 
 from services.order_service import OrderService
 
 
+@inject
 class CleanUp(object):
 
     def __init__(self):

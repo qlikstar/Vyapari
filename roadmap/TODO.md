@@ -5,6 +5,7 @@
 - [x] Code Open range Breakout Strategy
 - [x] Add High volume ETFs to Watchlist
 - [x] Implement Growth % every day in Chat Service
+- [ ] Dockerize the service
 - [ ] Backtesting strategies: VectorBT
 - [ ] Analyze strategy and optimize   
 - [ ] Save Time series to local DB
@@ -19,3 +20,4 @@
 - Easy Python Client example: https://github.com/Finnhub-Stock-API/finnhub-python
 - String formatter: https://www.learnbyexample.org/python-string-format-method/
 - Convert string to Python class: https://stackoverflow.com/questions/1176136/convert-string-to-python-class-object
+- Install TA-Lib: https://sachsenhofer.io/install-ta-lib-ubuntu-server/

@@ -2,7 +2,8 @@ link: install
 	jprq http 8000 -s=vyapari
 
 run:
-	source venv/bin/activate && uvicorn app:app --reload
+	source venv/bin/activate
+	uvicorn app:app
 
 install: requirements.txt
 	test -d venv || virtualenv venv

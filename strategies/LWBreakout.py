@@ -7,7 +7,7 @@ from typing import List
 import pandas
 import talib
 from attr import dataclass
-from kink import di
+from kink import di, inject
 
 from core.schedule import SafeScheduler, FrequencyTag
 from scheduled_jobs.watchlist import WatchList
@@ -28,6 +28,7 @@ class LWStock:
     step: float
 
 
+@inject
 class LWBreakout(object):
     """
         Larry Williams Breakout strategy :

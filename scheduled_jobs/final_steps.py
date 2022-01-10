@@ -1,6 +1,6 @@
 import logging
 
-from kink import di
+from kink import di, inject
 
 from services.account_service import AccountService
 from services.notification_service import Notification
@@ -8,6 +8,7 @@ from services.notification_service import Notification
 logger = logging.getLogger(__name__)
 
 
+@inject
 class FinalSteps(object):
 
     def __init__(self):

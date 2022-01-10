@@ -6,6 +6,12 @@ class Strategy(ABC):
 
     DATA = "data"
 
+    def init_data(self):
+        pass
+
+    def run(self, sleep_next_x_seconds, until_time):
+        pass
+
     def get_algo_name(self) -> str:
         pass
 
