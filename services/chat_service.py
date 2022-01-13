@@ -199,7 +199,7 @@ class CommandResponse(object):
             run_date = date(item.run_date.year, item.run_date.month, item.run_date.day).strftime("%b %d %Y")
             gain = item.final_portfolio_value - item.initial_portfolio_value
             gain_percentage = float((gain / item.initial_portfolio_value) * 100)
-            resp = resp + f"{run_date}  ${item.initial_portfolio_value:.2f} {gain: 6.2f} {gain_percentage: 4.2f}%\n"
+            resp = resp + f"{run_date}  ${item.initial_portfolio_value:.2f} {gain: 8.2f} {gain_percentage: 6.2f}%\n"
         return resp + "```"
 
     def _get_all_balanced_positions(self) -> (List[StockPerf], List[StockPerf]):

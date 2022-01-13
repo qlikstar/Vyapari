@@ -43,7 +43,7 @@ class LWBreakout(object):
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
     MOVED_DAYS = 3
-    BARSET_RECORDS = 30
+    BARSET_RECORDS = 60
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
@@ -93,8 +93,8 @@ class LWBreakout(object):
                     if stock.lw_upper_bound < current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price - (2 * stock.step)
-                        take_profit = current_market_price + (3 * stock.step)
+                        stop_loss = current_market_price - (1 * stock.step)
+                        take_profit = current_market_price + (2 * stock.step)
 
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
                                                                stop_loss, take_profit)
@@ -105,8 +105,8 @@ class LWBreakout(object):
                             and stock.lw_lower_bound > current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price + (2 * stock.step)
-                        take_profit = current_market_price - (3 * stock.step)
+                        stop_loss = current_market_price + (1 * stock.step)
+                        take_profit = current_market_price - (2 * stock.step)
 
                         self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
                                                                stop_loss, take_profit)
@@ -129,32 +129,36 @@ class LWBreakout(object):
             if stock_price > LWBreakout.STOCK_MAX_PRICE or stock_price < LWBreakout.STOCK_MIN_PRICE:
                 continue
 
-            df = self._get_stock_df(stock)
+            try:
+                df = self._get_stock_df(stock)
 
-            df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-            df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=5)
-            df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=9)
-            increasing_atr: bool = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
-                                   and df.iloc[-3]['ATR-slope-fast'] > df.iloc[-3]['ATR-slope-slow']
-            atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
+                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
+                df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
+                increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                                 and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
+                atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
-            yesterdays_record = df.iloc[-1]
-            y_stock_open = yesterdays_record['open']
-            y_stock_high = yesterdays_record['high']
-            y_stock_low = yesterdays_record['low']
-            y_stock_close = yesterdays_record['close']
+                yesterdays_record = df.iloc[-1]
+                y_stock_open = yesterdays_record['open']
+                y_stock_high = yesterdays_record['high']
+                y_stock_low = yesterdays_record['low']
+                y_stock_close = yesterdays_record['close']
 
-            y_change = round((y_stock_close - y_stock_open) / y_stock_open * 100, 3)
-            y_range = y_stock_high - y_stock_low  # yesterday's range
-            step = round(y_range * 0.25, 3)
+                y_change = round((y_stock_close - y_stock_open) / y_stock_open * 100, 3)
+                y_range = y_stock_high - y_stock_low  # yesterday's range
+                step = round(y_range * 0.25, 3)
 
-            lw_lower_bound = round(stock_price - step)
-            lw_upper_bound = round(stock_price + step)
+                lw_lower_bound = round(stock_price - step)
+                lw_upper_bound = round(stock_price + step)
 
-            # choose the most volatile stocks
-            if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
-                logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
-                stock_info.append(LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))
+                # choose the most volatile stocks
+                if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
+                    logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
+                    stock_info.append(LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))
+
+            except Exception as ex:
+                logger.warning(f"Could not process {stock}: {ex}")
 
         stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
         logger.info(f'Today\'s stock picks: {len(stock_picks)}')
@@ -184,4 +188,4 @@ class LWBreakout(object):
         minute_bars = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 5)
         volumes = minute_bars['volume'].to_list()
         volume_mean = mean(volumes[:-1])
-        return volumes[-1] > volume_mean * 2.0
+        return volumes[-1] > volume_mean * 3.0

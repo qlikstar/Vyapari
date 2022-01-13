@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from statistics import mean
 from typing import List
 
 import pandas
@@ -27,7 +26,7 @@ References:
 Rules:
     1. when market opens, determine the range of the breakout during the first 30 min.
     This range is the breakout range.
-    2. In oder to avoid false breakouts, check for volume. It MUST be higher than the recent volumes.
+    2. In order to avoid false breakouts, check for volume. It MUST be higher than the recent volumes.
     3. Better chances are there if the closing price is above VWAP 
     4. Make sure Volatility range  > 18
     5. Stop Loss: Use session low as stop loss. However, 2 step Stop loss approach is better.
@@ -53,6 +52,7 @@ logger = logging.getLogger(__name__)
 class ORBStock:
     symbol: str
     atr_to_price: float
+    side: str
     lower_bound: float
     upper_bound: float
     range: float
@@ -64,7 +64,7 @@ class ORBStrategy(Strategy):
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 1000
     MOVED_DAYS = 3
-    BARSET_RECORDS = 30
+    BARSET_RECORDS = 60
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
@@ -120,26 +120,38 @@ class ORBStrategy(Strategy):
                 trade_count = len(self.stocks_traded_today)
 
                 # Enter the position only on high volume
-                if self._with_high_volume(stock.symbol):
+                if self._with_high_momentum(stock):
 
                     # long
-                    if stock.upper_bound < current_market_price and trade_count < ORBStrategy.MAX_NUM_STOCKS:
+                    if stock.side == 'long' and stock.upper_bound < current_market_price \
+                            and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares,
-                                                                        ORBStrategy.TRAIL_PERCENT)
+                        stop_loss = current_market_price - (1 * stock.range)
+                        take_profit = current_market_price + (1.5 * stock.range)
+
+                        self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
+                                                               stop_loss, take_profit)
+                        # self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares,
+                        #                                                 ORBStrategy.TRAIL_PERCENT)
                         self.stocks_traded_today.append(stock.symbol)
 
                     # short
-                    if self.order_service.is_shortable(stock.symbol) \
+                    if stock.side == 'short' and self.order_service.is_shortable(stock.symbol) \
                             and stock.lower_bound > current_market_price \
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares,
-                                                                        ORBStrategy.TRAIL_PERCENT)
+                        stop_loss = current_market_price + (1 * stock.range)
+                        take_profit = current_market_price - (1.5 * stock.range)
+
+                        self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
+                                                               stop_loss, take_profit)
+
+                        # self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares,
+                        #                                                 ORBStrategy.TRAIL_PERCENT)
                         self.stocks_traded_today.append(stock.symbol)
 
     def populate_opening_range(self) -> None:
@@ -147,10 +159,13 @@ class ORBStrategy(Strategy):
             opening_bounds = self._get_opening_bounds(stock_pick.symbol)
             if len(opening_bounds) == 2:
                 lower_bound, upper_bound = opening_bounds
-                o_range = upper_bound - lower_bound
-                orb_stock = ORBStock(stock_pick.symbol, stock_pick.atr_to_price, lower_bound, upper_bound, o_range)
-                logger.info(f"Today's final stock picks: {orb_stock}")
+                o_range = round(upper_bound - lower_bound, 3)
+                orb_stock = ORBStock(stock_pick.symbol, stock_pick.atr_to_price, stock_pick.side,
+                                     lower_bound, upper_bound, o_range)
                 self.todays_stock_picks.append(orb_stock)
+
+        logger.info(f"Today's final stock picks: {len(self.todays_stock_picks)}")
+        [logger.info(f'{stock_pick}') for stock_pick in self.todays_stock_picks]
 
     def _get_pre_stock_picks(self) -> List[ORBStock]:
         # get the best buy and strong buy stock from Nasdaq.com and sort them by the best stocks
@@ -169,18 +184,33 @@ class ORBStrategy(Strategy):
             if stock_price > ORBStrategy.STOCK_MAX_PRICE or stock_price < ORBStrategy.STOCK_MIN_PRICE:
                 continue
 
-            df = self._get_stock_df(stock)
-            df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-            df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=5)
-            df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=9)
-            increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
-                             and df.iloc[-3]['ATR-slope-fast'] > df.iloc[-3]['ATR-slope-slow']
-            atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
+            try:
+                df = self._get_stock_df(stock)
+                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
+                df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
+                increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                                 and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
+                atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
-            # choose the most volatile stocks
-            if increasing_atr and atr_to_price > 4 and self.order_service.is_tradable(stock):
-                logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
-                stock_info.append(ORBStock(stock, atr_to_price, 0, 0, 0))
+                df['RSI'] = talib.RSI(df['close'], timeperiod=14)
+                df['RSI-slope-fast'] = talib.EMA(df['RSI'], timeperiod=9)
+                df['RSI-slope-slow'] = talib.EMA(df['RSI'], timeperiod=14)
+                long = df.iloc[-1]['RSI-slope-fast'] > df.iloc[-1]['RSI-slope-slow'] \
+                       and df.iloc[-5]['RSI-slope-fast'] > df.iloc[-5]['RSI-slope-slow']
+                short = df.iloc[-1]['RSI-slope-fast'] < df.iloc[-1]['RSI-slope-slow'] \
+                        and df.iloc[-5]['RSI-slope-fast'] < df.iloc[-5]['RSI-slope-slow']
+
+                # choose the most volatile stocks
+                if increasing_atr and atr_to_price > 4 and self.order_service.is_tradable(stock) and (long or short):
+                    logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} '
+                                f'has an ATR:price ratio of {atr_to_price}%')
+                    if long:
+                        stock_info.append(ORBStock(stock, atr_to_price, 'long', 0, 0, 0))
+                    else:
+                        stock_info.append(ORBStock(stock, atr_to_price, 'short', 0, 0, 0))
+            except Exception as ex:
+                logger.warning(f"Could not process {stock}: {ex}")
 
         pre_stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
         logger.info(f"Today's pre-stock picks: {len(pre_stock_picks)}")
@@ -219,8 +249,38 @@ class ORBStrategy(Strategy):
         logger.warning(f"Record count of 5 min bars is lesser than threshold for : {symbol}")
         return []
 
-    def _with_high_volume(self, symbol):
-        minute_bars = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 5)
-        volumes = minute_bars['volume'].to_list()
-        volume_mean = mean(volumes[:-1])
-        return volumes[-1] > volume_mean * 2.0
+    def _with_high_momentum(self, stock) -> bool:
+        symbol = stock.symbol
+        raw_df = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 9)
+        df = self.vwap(raw_df)
+
+        # volumes = raw_df['volume'].to_list()
+        # volume_mean = mean(volumes[:-1])
+        # if volumes[-1] > volume_mean * 2.0:
+
+        ha_df = self.heiken_ashi(df)
+        ha_green = True if ha_df.iloc[-1]['HA_Close'] > ha_df.iloc[-1]['HA_Open'] else False
+        buffer = df.iloc[-1]['close'] * 0.002
+        if stock.side == 'buy' and ha_green and df.iloc[-1]['open'] > df.iloc[-1]['VWAP'] + buffer:
+            return True
+        if stock.side == 'sell' and not ha_green and df.iloc[-1]['open'] < df.iloc[-1]['VWAP'] - buffer:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def vwap(df):
+        vol = df['volume'].values
+        tp = (df['low'] + df['close'] + df['high']).div(3).values
+        return df.assign(VWAP=(tp * vol).cumsum() / vol.cumsum())
+
+    @staticmethod
+    def heiken_ashi(df):
+        df_ha = df.copy()
+        df_ha['HA_Close'] = 0.0
+        df_ha['HA_Open'] = 0.0
+        for i in range(df_ha.shape[0]):
+            if i > 0:
+                df_ha.loc[df_ha.index[i], 'HA_Open'] = (df['open'][i - 1] + df['close'][i - 1]) / 2
+            df_ha.loc[df_ha.index[i], 'HA_Close'] = (df['open'][i] + df['close'][i] + df['low'][i] + df['high'][i]) / 4
+        return df_ha

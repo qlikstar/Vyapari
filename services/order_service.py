@@ -100,7 +100,7 @@ class OrderService(object):
             trailing_side = 'sell' if side == 'buy' else 'buy'
 
             try:
-                self.market_sell(symbol, qty)
+                self._place_market_order(symbol, qty, side)
                 order = self.api.submit_order(symbol, qty, trailing_side, type='trailing_stop',
                                               trail_percent=str(trail_percent), time_in_force='gtc')
                 self.notification.notify("Trailing bracket order to *{}*: *{}* shares of *{}* with {}% placed"
