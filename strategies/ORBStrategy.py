@@ -260,10 +260,11 @@ class ORBStrategy(Strategy):
 
         ha_df = self.heiken_ashi(df)
         ha_green = True if ha_df.iloc[-1]['HA_Close'] > ha_df.iloc[-1]['HA_Open'] else False
-        buffer = df.iloc[-1]['close'] * 0.002
-        if stock.side == 'buy' and ha_green and df.iloc[-1]['open'] > df.iloc[-1]['VWAP'] + buffer:
+        buffer = df.iloc[-1]['close'] * 0.001
+        logger.info(f'{stock} -> HA Green: {ha_green}, Open : {df.iloc[-1]["open"]}, VWAP: {df.iloc[-1]["VWAP"]}')
+        if ha_green and df.iloc[-1]['open'] > df.iloc[-1]['VWAP'] + buffer:
             return True
-        if stock.side == 'sell' and not ha_green and df.iloc[-1]['open'] < df.iloc[-1]['VWAP'] - buffer:
+        if not ha_green and df.iloc[-1]['open'] < df.iloc[-1]['VWAP'] - buffer:
             return True
         else:
             return False
