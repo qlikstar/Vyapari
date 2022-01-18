@@ -115,7 +115,7 @@ class ORBStrategy(Strategy):
         for stock in self.todays_stock_picks:
             logger.info(f"Checking {stock.symbol} to place an order ...")
             # Open new positions on stocks only if not already held or if not traded today
-            if stock.symbol not in held_stocks and stock.symbol not in self.stocks_traded_today:
+            if stock.symbol not in held_stocks:
                 current_market_price = self.data_service.get_current_price(stock.symbol)
                 trade_count = len(self.stocks_traded_today)
 
@@ -128,8 +128,8 @@ class ORBStrategy(Strategy):
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price - (0.5 * stock.range)
-                        take_profit = current_market_price + (1.0 * stock.range)
+                        stop_loss = current_market_price - (1 * stock.range)
+                        take_profit = current_market_price + (1.2 * stock.range)
 
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
                                                                stop_loss, take_profit)
@@ -145,7 +145,7 @@ class ORBStrategy(Strategy):
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
                         stop_loss = current_market_price + (1 * stock.range)
-                        take_profit = current_market_price - (1.5 * stock.range)
+                        take_profit = current_market_price - (1.2 * stock.range)
 
                         self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
                                                                stop_loss, take_profit)
