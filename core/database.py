@@ -104,10 +104,14 @@ class Database(object):
             .order_by(OrderEntity.symbol.asc(), OrderEntity.created_at.asc())
 
     @staticmethod
-    def get_all_filled_orders_ever() -> List[OrderEntity]:
+    def get_all_filled_orders_today() -> List[OrderEntity]:
+        for_date = date.today()
         return OrderEntity \
             .select() \
-            .where(OrderEntity.status == 'filled') \
+            .where(OrderEntity.filled_at.day == for_date.day,
+                   OrderEntity.filled_at.month == for_date.month,
+                   OrderEntity.filled_at.year == for_date.year) \
+            .filter(OrderEntity.status == 'filled') \
             .order_by(OrderEntity.symbol.asc(), OrderEntity.filled_at.asc())
 
     @staticmethod

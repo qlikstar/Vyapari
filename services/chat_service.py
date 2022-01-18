@@ -87,12 +87,11 @@ class CommandResponse(object):
                 "*/trades   :* `Lists last closed trades`\n"
                 "*/profit [n]:* `Lists cumulative profit`\n"
                 "*/forcesell [stock or all]:* `Instantly sells stock or all`\n"
-                "*/performance :* `Show performance per stock`\n"
-                "*/current    :* `Show current open positions`\n"
-                "*/unrealized :* `Shows current unrealized profit or loss`\n"
+                "*/current  :* `Show current open positions`\n"
+                "*/realized :* `Shows today's realized profit or loss`\n"
                 "*/balance  :* `Show account balance`\n"
-                "*/history  :* `Shows Portfolio history`\n"
-                "*/help     :* `This help message`\n"
+                "*/history  :* `Shows portfolio history`\n"
+                "*/help     :* `Help message`\n"
                 "*/version  :* `Show version`")
 
     @staticmethod
@@ -107,31 +106,7 @@ class CommandResponse(object):
     def health() -> str:
         return "Not Implemented yet!"
 
-    def unrealized(self) -> str:
-        realized_profit_list, unrealized_profit_list = self._get_all_balanced_positions()
-
-        if len(unrealized_profit_list) == 0:
-            return '`*** No current positions found ***`'
-
-        total_investment = 0
-        total_unrealized_profit = 0
-        resp = "```\nDate          Symbol  Side   Invested  UGain     UGain%\n"
-        resp = resp + "--------------------------------------------------------\n"
-        for item in unrealized_profit_list:
-
-            unrealized_profit = item.market_value - item.cost_basis
-            unrealized_profit_percent = (unrealized_profit / item.market_value) * 100
-            resp = resp + f'{item.close_date}   {item.symbol:<5}   {item.side:<5}  ${float(item.cost_basis):8.2f} ' \
-                          f'${float(unrealized_profit): 8.2f} {float(unrealized_profit_percent): 4.2f}%\n'
-            total_unrealized_profit = total_unrealized_profit + unrealized_profit
-            total_investment = total_investment + item.market_value
-
-        percentage_profit = (total_unrealized_profit / total_investment) * 100
-        resp = resp + f'--------------------------------------------------------\n'
-        resp = resp + f'Total Unrealized P/L : ${total_unrealized_profit: 8.2f} ({percentage_profit: 4.2f}%)```'
-        return resp.replace('$-', '-$')
-
-    def performance(self) -> str:
+    def realized(self) -> str:
         realized_profit_list, unrealized_profit_list = self._get_all_balanced_positions()
 
         if len(realized_profit_list) == 0:

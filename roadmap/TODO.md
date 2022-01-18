@@ -21,3 +21,4 @@
 - String formatter: https://www.learnbyexample.org/python-string-format-method/
 - Convert string to Python class: https://stackoverflow.com/questions/1176136/convert-string-to-python-class-object
 - Install TA-Lib: https://sachsenhofer.io/install-ta-lib-ubuntu-server/
+- SSH into a stopped container: docker run -it --rm --name newname vyapari_backend:latest bash

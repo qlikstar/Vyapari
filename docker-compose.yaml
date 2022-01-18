@@ -11,27 +11,29 @@ services:
       MYSQL_PASSWORD: password
       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
     ports:
-      - 3306:3306
+      - "3306:3306"
+    expose:
+      - 3306
     volumes:
       - './db/mysql/data:/var/lib/mysql'
       - './db/my.cnf:/etc/mysql/conf.d/my.cnf'
       - './db/sql:/docker-entrypoint-initdb.d/:ro'
-#    networks:
-#      - local-net
+    networks:
+      - vynet
 
 # FastAPI
-#  vyapari-backend:
-#    links:
-#      - db
-#    container_name: vyapari-backend
-#    build: .
-#    ports:
-#      - "8000:8000"
-#    volumes:
-#      - .:/home/app
-#    networks:
-#      - local-net
-#
-#networks:
-#  local-net:
-#    driver: bridge
+  vybackend:
+    links:
+      - db
+    container_name: vybackend
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/home/app
+    networks:
+      - vynet
+
+networks:
+  vynet:
+    driver: bridge

@@ -128,8 +128,8 @@ class ORBStrategy(Strategy):
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price - (1 * stock.range)
-                        take_profit = current_market_price + (1.5 * stock.range)
+                        stop_loss = current_market_price - (0.5 * stock.range)
+                        take_profit = current_market_price + (1.0 * stock.range)
 
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
                                                                stop_loss, take_profit)
@@ -251,7 +251,7 @@ class ORBStrategy(Strategy):
 
     def _with_high_momentum(self, stock) -> bool:
         symbol = stock.symbol
-        raw_df = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 9)
+        raw_df = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 14)
         df = self.vwap(raw_df)
 
         # volumes = raw_df['volume'].to_list()
