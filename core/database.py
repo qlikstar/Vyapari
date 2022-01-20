@@ -4,12 +4,19 @@ from typing import List
 
 from kink import inject
 
-from core.db_tables import OrderEntity, PositionEntity, StockEntity, AccountEntity
+from core.db_tables import OrderEntity, PositionEntity, StockEntity, AccountEntity, conn
 from datetime import date
 
 
 @inject
 class Database(object):
+
+    # *** Ping ***
+
+    @staticmethod
+    def ping():
+        # Fix to avoid peewee error : "MySQL has gone away"
+        return conn.connect(reuse_if_open=True)
 
     # *** Account ****
 

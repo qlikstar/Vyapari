@@ -3,6 +3,7 @@ import importlib
 
 from kink import inject, di
 
+from core.database import Database
 from scheduled_jobs.cleanup import CleanUp
 from scheduled_jobs.final_steps import FinalSteps
 from scheduled_jobs.initial_steps import InitialSteps
@@ -22,6 +23,7 @@ class AppConfig(object):
         strategy_class = getattr(importlib.import_module(f"strategies.{self.strategy_name}"), self.strategy_name)
         self.strategy = strategy_class()
 
+        self.database = di[Database]
         self.order_service = di[OrderService]
         self.initial_steps = di[InitialSteps]
         self.intermediate = di[Intermediate]
@@ -53,6 +55,6 @@ class AppConfig(object):
     def run_after_market_close(self):
         self.final_steps.show_portfolio_details()
 
-    @staticmethod
-    def register_heartbeat() -> None:
+    def register_heartbeat(self) -> None:
+        self.database.ping()
         logger.info(f"Registering heartbeat ... ")

@@ -1,19 +1,15 @@
 from peewee import *
 
 # TODO : Move these out
-from playhouse.pool import PooledMySQLDatabase
-
 user = 'root'
 password = 'password'
 db_name = 'vyapari'
 
-conn = PooledMySQLDatabase(
+conn = MySQLDatabase(
     db_name, user=user,
     password=password,
     host='db',
-    port=3306,
-    max_connections=8,
-    stale_timeout=86400)
+    port=3306, thread_safe=True)
 
 
 class BaseModel(Model):
