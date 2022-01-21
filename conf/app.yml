@@ -3,9 +3,10 @@ common:
   dry_run: True
   db_name: vyapari
 
-# Config for LWBreakoutConfig Strategy
+
 strategy: ORBStrategy
 
+# Config for ORBStrategy
 ORBStrategy:
   STOCK_MIN_PRICE: 20
   STOCK_MAX_PRICE: 1000
@@ -16,6 +17,7 @@ ORBStrategy:
   MAX_STOCK_WATCH_COUNT: 100
   TRAIL_PERCENT: 2.00
 
+# Config for LWBreakout
 LWBreakout:
   STOCK_MIN_PRICE: 20
   STOCK_MAX_PRICE: 1000

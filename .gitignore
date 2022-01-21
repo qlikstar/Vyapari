@@ -135,7 +135,7 @@ dmypy.json
 .idea/**
 
 # Project
-/conf/env.yaml
+/conf/env.yml
 /db/mysql/*
 /data/*
 /ignored/

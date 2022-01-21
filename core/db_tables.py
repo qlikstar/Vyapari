@@ -1,20 +1,28 @@
 from peewee import *
 
+from playhouse.pool import PooledMySQLDatabase
+
 # TODO : Move these out
+host = 'db'
 user = 'root'
 password = 'password'
 db_name = 'vyapari'
 
-conn = MySQLDatabase(
-    db_name, user=user,
+# https://github.com/spaceshipearth/pyspaceship/pull/51/files
+
+db = PooledMySQLDatabase(
+    db_name,
+    host=host,
+    port=3306,
+    user=user,
     password=password,
-    host='db',
-    port=3306, thread_safe=True)
+    charset='utf8',
+)
 
 
 class BaseModel(Model):
     class Meta:
-        database = conn
+        database = db
 
 
 class AccountEntity(BaseModel):

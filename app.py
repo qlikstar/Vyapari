@@ -1,16 +1,19 @@
 import asyncio
 import logging
 
+import uvicorn
 from fastapi import FastAPI
 from kink import di
 
 from app_config import AppConfig
-from core.db_tables import conn
+from core.db_tables import db
 from services.scheduler_service import SchedulerService
+from fastapi.templating import Jinja2Templates
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title='Vyapari', description='APIs for Vyapari', version='0.0.1-SNAPSHOT')
+templates = Jinja2Templates(directory="templates")
 
 app_config = AppConfig()
 loop = asyncio.new_event_loop()
@@ -28,8 +31,8 @@ async def root():
 @app.on_event("startup")
 async def startup():
     logger.info("Connecting DB ...")
-    if conn.is_closed():
-        conn.connect()
+    if db.is_closed():
+        db.connect()
 
     loop.run_in_executor(None, scheduler_service.start)
 
@@ -38,8 +41,8 @@ async def startup():
 async def shutdown():
     scheduler_service.cancel_all()
     logger.info("Closing DB connection...")
-    if not conn.is_closed():
-        conn.close()
+    if not db.is_closed():
+        db.close()
 
     logger.info("Closing event loop...")
     while loop.is_running():
@@ -50,12 +53,14 @@ async def shutdown():
     logger.info("Exited")
 
 
-from webapp import callback_router, position_router, scheduler_router, order_router
+from webapp import callback_router, position_router, scheduler_router, order_router, ui_router
 
 app.include_router(position_router.route)
 app.include_router(scheduler_router.route)
 app.include_router(callback_router.route)
 app.include_router(order_router.route)
+app.include_router(ui_router.route)
 
-# if __name__ == "__main__":
-#     uvicorn.run(host="0.0.0.0", port=8000)
+
+if __name__ == "__main__":
+    uvicorn.run(host="0.0.0.0", port=8000)

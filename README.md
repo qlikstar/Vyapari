@@ -17,7 +17,7 @@ This project is highly customizable and is based on the following:
 ![Vyapari](https://user-images.githubusercontent.com/4952220/134234830-a3ecd063-53ec-4a61-8a9e-72267e6e1794.jpeg)
 
 ## How to run
-- Rename the `env.yaml.sample` to `env.yaml`
+- Rename the `env.yml.sample` to `env.yml`
 - Populate the required values for Alpaca and Pushover
 - Run `docker-compose up` to bring up Mysql8 instance
 - Run the following command `make clean install run`
