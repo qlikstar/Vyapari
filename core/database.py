@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 from kink import inject
-from peewee import OperationalError
+from peewee import OperationalError, fn
 
 from core.db_tables import OrderEntity, PositionEntity, StockEntity, AccountEntity, db
 from datetime import date
@@ -145,6 +145,11 @@ class Database(object):
     @staticmethod
     def get_by_id(order_id: str) -> OrderEntity:
         return wrap(OrderEntity.select().where(OrderEntity.id == order_id))
+
+    @staticmethod
+    def get_latest_filled_dt(symbol: str) -> datetime:
+        return wrap(OrderEntity.select(fn.MAX(OrderEntity.filled_at))
+                    .where(OrderEntity.symbol == symbol).scalar())
 
     @staticmethod
     def get_by_parent_id(parent_order_id: str) -> List[OrderEntity]:

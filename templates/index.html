@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+    <script>
+        $(document).ready(function(){
+          $('.menu .item').tab();
+        });
+    </script>
+</head>
+<body>
+    <br>
+    <div class="ui container">
+
+        <!--tabs-->
+        <div class="ui three item top attached tabular menu">
+            <div class="left item" data-tab="dashboard">
+                <h2 class="ui header">
+                    <i class="chart line icon"></i>
+                    <div class="content">
+                    Dashboard
+                    <div class="sub header">Portfolio History</div>
+                    </div>
+                </h2>
+            </div>
+            <div class="active center item" data-tab="current-positions">
+                <h2 class="ui header">
+                    <i class="briefcase icon"></i>
+                    <div class="content">
+                    Stocks traded today
+                    <div class="sub header">Positions currently held</div>
+                    </div>
+                </h2>
+              </div>
+            <div class="right item" data-tab="closed-positions">
+                <h2 class="ui header">
+                    <i class="snowflake icon"></i>
+                    <div class="content">
+                    Deep Analysis
+                    <div class="sub header">Stocks closed today</div>
+                    </div>
+                </h2>
+            </div>
+        </div>
+
+        <div class="ui bottom attached tab segment" data-tab="dashboard">
+            <table class="ui green striped table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Initial Portfolio Value</th>
+                        <th>Final Portfolio Value</th>
+                        <th>Profit/Loss ($)</th>
+                        <th>Profit/Loss (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for hist in data['history'] %}
+                    <tr>
+                        <td>{{hist.date}}</td>
+                        <td>{{hist.initial}}</td>
+                        <td>{{hist.final}}</td>
+                        <td><a class="ui {{hist.pl_color}} label">{{hist.gain}}</a></td>
+                        <td><a class="ui {{hist.pl_color}} label">{{hist.gain_pc}}</a></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ui bottom attached active tab segment" data-tab="current-positions">
+        {% for position in data['current_positions'] %}
+            <div class="ui raised very padded text segment">
+                <h4 class="ui horizontal divider header">
+                  <i class="tag icon"></i>
+                  {{position.symbol}}
+                </h4>
+
+                <table class="ui selectable {{position.color}} table">
+                  <thead>
+                  <tr>
+                    <th>Filled At</th>
+                    <th>Exchange</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Entry Price</th>
+                    <th>Current Price</th>
+                    <th>Profit(-/+)</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{{position.filled_at}}</td>
+                      <td>{{position.exchange}}</td>
+                      <td>{{position.type}}</td>
+                      <td>{{position.position_size}}</td>
+                      <td>{{position.entry_price}}</td>
+                      <td>{{position.current_price}}</td>
+                      <td><a class="ui {{position.pl_color}} label">{{position.profit}}</a></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div>
+                    <!-- TradingView Widget BEGIN -->
+                    <div class="tradingview-widget-container">
+                      <div class="tradingview-widget-copyright"></div>
+                      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                      <script type="text/javascript">
+                      new TradingView.widget(
+                      {
+                      "width": "100%",
+                      "height": 500,
+                      "symbol": "{{ position.exchange }}:{{ position.symbol }}",
+                      "interval": "5",
+                      "timezone": "America/Los_Angeles",
+                      "theme": "light",
+                      "style": "8",
+                      "locale": "en",
+                      "toolbar_bg": "#f1f3f6",
+                      "enable_publishing": false,
+                      "withdateranges": true,
+                      "range": "1D",
+                      "hide_side_toolbar": false,
+                      "allow_symbol_change": true,
+                      "save_image": false,
+                    }
+                      );
+                      </script>
+                    </div>
+                    <!-- TradingView Widget END -->
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+
+        <div class="ui bottom attached tab segment" data-tab="closed-positions">
+        {% for position in data['closed_positions'] %}
+            <div class="ui raised very padded text segment">
+                <h4 class="ui horizontal divider header">
+                  <i class="tag icon"></i>
+                  {{position.symbol}}
+                </h4>
+
+                <table class="ui selectable {{position.color}} table">
+                  <thead>
+                  <tr>
+                      <th>Filled At</th>
+                      <th>Order Type</th>
+                      <th>Side</th>
+                      <th>Order Size</th>
+                      <th>Filled Price</th>
+                      <th>Filled Price</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                    {% for record in position.records %}
+                    <tr>
+                      <td>{{record.filled_at}}</td>
+                      <td><a class="ui {{record.order_color}} label">{{record.order_type}}</a></td>
+                      <td><a class="ui {{record.side_color}} label">{{record.side}}</a></td>
+                      <td>{{record.filled_qty}}</td>
+                      <td>{{record.limit_price}}</td>
+                      <td>{{record.filled_price}}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                <div>
+                    <!-- TradingView Widget BEGIN -->
+                    <div class="tradingview-widget-container">
+                      <div class="tradingview-widget-copyright"></div>
+                      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                      <script type="text/javascript">
+                      new TradingView.widget(
+                      {
+                      "width": "100%",
+                      "height": 500,
+                      "symbol": "{{ position.symbol }}",
+                      "interval": "5",
+                      "timezone": "America/Los_Angeles",
+                      "theme": "light",
+                      "style": "8",
+                      "locale": "en",
+                      "toolbar_bg": "#f1f3f6",
+                      "enable_publishing": false,
+                      "withdateranges": true,
+                      "range": "1D",
+                      "hide_side_toolbar": false,
+                      "allow_symbol_change": true,
+                      "save_image": false,
+                    }
+                      );
+                    </script>
+                    <!-- TradingView Widget END -->
+                    </div>
+
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+        integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+		crossorigin="anonymous">
+	</script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+	<script>$('.menu .item').tab();</script>
+
+</body>
+</html>

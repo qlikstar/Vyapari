@@ -178,7 +178,7 @@ class CommandResponse(object):
         return resp + "```"
 
     def _get_all_balanced_positions(self) -> (List[StockPerf], List[StockPerf]):
-        all_orders: List[OrderEntity] = self.order_service.get_all_filled_orders_ever()
+        all_orders: List[OrderEntity] = self.order_service.get_all_filled_orders_today()
 
         realized_profit_list: List[StockPerf] = []
         unrealized_profit_list: List[StockPerf] = []

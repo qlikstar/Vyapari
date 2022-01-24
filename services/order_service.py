@@ -159,7 +159,7 @@ class OrderService(object):
     def get_all_orders(self, for_date: date) -> List[OrderEntity]:
         return list(self.db.get_all_orders(for_date))
 
-    def get_all_filled_orders_ever(self) -> List[OrderEntity]:
+    def get_all_filled_orders_today(self) -> List[OrderEntity]:
         return list(self.db.get_all_filled_orders_today())
 
     def update_all_open_orders(self) -> None:
