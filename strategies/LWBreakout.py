@@ -93,8 +93,8 @@ class LWBreakout(object):
                     if stock.lw_upper_bound < current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price - (1 * stock.step)
-                        take_profit = current_market_price + (2 * stock.step)
+                        stop_loss = current_market_price - (3 * stock.step)
+                        take_profit = current_market_price + (6 * stock.step)
 
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
                                                                stop_loss, take_profit)
@@ -105,8 +105,8 @@ class LWBreakout(object):
                             and stock.lw_lower_bound > current_market_price and trade_count < LWBreakout.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(LWBreakout.AMOUNT_PER_ORDER / current_market_price)
-                        stop_loss = current_market_price + (1 * stock.step)
-                        take_profit = current_market_price - (2 * stock.step)
+                        stop_loss = current_market_price + (3 * stock.step)
+                        take_profit = current_market_price - (6 * stock.step)
 
                         self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
                                                                stop_loss, take_profit)

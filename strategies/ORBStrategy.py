@@ -123,13 +123,13 @@ class ORBStrategy(Strategy):
                 if self._with_high_momentum(stock):
 
                     # long
-                    if stock.side == 'long' and stock.upper_bound < current_market_price \
+                    if stock.side == 'long' and stock.upper_bound + (0.25 * stock.range) < current_market_price \
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price - (1 * stock.range)
-                        take_profit = current_market_price + (1.2 * stock.range)
+                        stop_loss = current_market_price - (1.0 * stock.range)
+                        take_profit = current_market_price + (1.5 * stock.range)
 
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
                                                                stop_loss, take_profit)
@@ -139,13 +139,13 @@ class ORBStrategy(Strategy):
 
                     # short
                     if stock.side == 'short' and self.order_service.is_shortable(stock.symbol) \
-                            and stock.lower_bound > current_market_price \
+                            and stock.lower_bound - (0.25 * stock.range) > current_market_price \
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price + (1 * stock.range)
-                        take_profit = current_market_price - (1.2 * stock.range)
+                        stop_loss = current_market_price + (1.0 * stock.range)
+                        take_profit = current_market_price - (1.5 * stock.range)
 
                         self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
                                                                stop_loss, take_profit)
@@ -240,13 +240,20 @@ class ORBStrategy(Strategy):
         today = date.today().isoformat()
         from_time = f'{today}T09:30:00-05:00'
         until_time = f'{today}T10:15:00-05:00'
-        minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_5, from_time, until_time)
-        highs = minute_bars['high'].to_list()
-        lows = minute_bars['low'].to_list()
+
+        # fix reduce the no of missing bars
+        one_minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_1, from_time, until_time)
+        five_minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_5, from_time, until_time)
+
+        highs = one_minute_bars['high'].to_list()
+        highs.extend(five_minute_bars['high'].to_list())
+
+        lows = one_minute_bars['low'].to_list()
+        lows.extend(five_minute_bars['low'].to_list())
 
         if len(highs) >= 2 and len(lows) >= 2:
             return [min(lows), max(highs)]
-        logger.warning(f"Record count of 5 min bars is lesser than threshold for : {symbol}")
+        logger.warning(f"Record count of 5 and 1 min bars is lesser than threshold for : {symbol}")
         return []
 
     def _with_high_momentum(self, stock) -> bool:
