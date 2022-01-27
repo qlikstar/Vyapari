@@ -1,21 +1,18 @@
+import os
 from peewee import *
-
 from playhouse.pool import PooledMySQLDatabase
 
-# TODO : Move these out
-host = 'db'
-user = 'root'
-password = 'password'
-db_name = 'vyapari'
+from services.util import load_env_variables
 
 # https://github.com/spaceshipearth/pyspaceship/pull/51/files
 
+load_env_variables()
 db = PooledMySQLDatabase(
-    db_name,
-    host=host,
-    port=3306,
-    user=user,
-    password=password,
+    os.environ.get('DB_NAME'),
+    host=os.environ.get('DB_HOST'),
+    port=int(os.environ.get('DB_PORT')),
+    user=os.environ.get('DB_USER'),
+    password=os.environ.get('DB_PWD'),
     charset='utf8',
 )
 

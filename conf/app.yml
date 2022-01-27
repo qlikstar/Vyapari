@@ -1,8 +1,6 @@
 ---
 common:
   dry_run: True
-  db_name: vyapari
-
 
 strategy: ORBStrategy
 

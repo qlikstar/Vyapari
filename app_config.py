@@ -9,7 +9,7 @@ from scheduled_jobs.final_steps import FinalSteps
 from scheduled_jobs.initial_steps import InitialSteps
 from scheduled_jobs.intermediate import Intermediate
 from services.order_service import OrderService
-from services.util import load_env_variables, load_app_variables
+from services.util import load_app_variables
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 class AppConfig(object):
 
     def __init__(self):
-        load_env_variables()
         self.strategy_name = load_app_variables("strategy")
         strategy_class = getattr(importlib.import_module(f"strategies.{self.strategy_name}"), self.strategy_name)
         self.strategy = strategy_class()
