@@ -5,6 +5,7 @@ from random import randint
 from typing import List
 
 import alpaca_trade_api as alpaca_api
+import pytz
 from alpaca_trade_api.entity import Order, Position
 from alpaca_trade_api.rest import APIError
 from kink import inject, di
@@ -14,6 +15,7 @@ from core.db_tables import OrderEntity
 from services.notification_service import Notification
 
 logger = logging.getLogger(__name__)
+timezone = pytz.timezone('America/Los_Angeles')
 
 
 @inject
@@ -93,18 +95,18 @@ class OrderService(object):
         else:
             logger.info("Order to {} could not be placed ...Market is NOT open.. !".format(side))
 
-    def place_trailing_bracket_order(self, symbol: str, side: str, qty: int,  trail_percent: float) -> None:
+    def place_trailing_bracket_order(self, symbol: str, side: str, qty: int, trail_price: float) -> None:
         if self.is_market_open():
 
-            logger.info(f"Placing trailing stop order to {side}: {symbol} : {qty} with {trail_percent}%")
+            logger.info(f"Placing bracket order with ${trail_price} to {side}: {symbol} : {qty} ")
             trailing_side = 'sell' if side == 'buy' else 'buy'
 
             try:
                 self._place_market_order(symbol, qty, side)
                 order = self.api.submit_order(symbol, qty, trailing_side, type='trailing_stop',
-                                              trail_percent=str(trail_percent), time_in_force='gtc')
-                self.notification.notify("Trailing bracket order to *{}*: *{}* shares of *{}* with {}% placed"
-                                         .format(trailing_side, qty, symbol, trail_percent))
+                                              trail_price=str(trail_price), time_in_force='gtc')
+                self.notification.notify("Bracket order with trailing stop ${} to *{}*: *{}* shares of *{}* placed"
+                                         .format(trail_price, trailing_side, qty, symbol))
                 self._save_order(order)
             except APIError as api_error:
                 # TODO: Handle if one request succeeds and other fails
@@ -181,8 +183,9 @@ class OrderService(object):
         self.db.create_order(order.id, parent_order_id, order.symbol, order.side, order_qty, order.time_in_force,
                              order.order_class, order.type, trail_percent, trail_price, stop_price, stop_price,
                              filled_avg_price, filled_qty, hwm, limit_price, order.replaced_by, order.extended_hours,
-                             order.status, order.failed_at, order.filled_at, order.canceled_at, order.expired_at,
-                             order.replaced_at, order.submitted_at, order.created_at, order.updated_at)
+                             order.status, self._pst(order.failed_at), self._pst(order.filled_at),
+                             self._pst(order.canceled_at), self._pst(order.expired_at), self._pst(order.replaced_at),
+                             self._pst(order.submitted_at), self._pst(order.created_at), self._pst(order.updated_at))
 
         if order.legs is not None:
             for leg in order.legs:
@@ -198,8 +201,9 @@ class OrderService(object):
                 self.db.create_order(leg.id, parent_order_id, leg.symbol, leg.side, order_qty, leg.time_in_force,
                                      leg.order_class, leg.type, trail_percent, trail_price, stop_price, stop_price,
                                      filled_avg_price, filled_qty, hwm, limit_price, leg.replaced_by,
-                                     leg.extended_hours, leg.status, leg.failed_at, leg.filled_at, leg.canceled_at,
-                                     leg.expired_at, leg.replaced_at, leg.submitted_at, leg.created_at, leg.updated_at)
+                                     leg.extended_hours, leg.status, self._pst(leg.failed_at), self._pst(leg.filled_at),
+                                     self._pst(leg.canceled_at), self._pst(leg.expired_at), self._pst(leg.replaced_at),
+                                     self._pst(leg.submitted_at), self._pst(leg.created_at), self._pst(leg.updated_at))
 
         logger.info(f"Saved order id: {parent_order_id}")
         return self.db.get_by_parent_id(parent_order_id)
@@ -211,11 +215,17 @@ class OrderService(object):
         filled_qty = self._check_float(order.filled_qty)
         hwm = self._check_float(order.hwm)
         self.db.update_order(order_id, updated_stop_price, filled_avg_price, filled_qty, hwm, order.replaced_by,
-                             order.extended_hours, order.status, order.failed_at, order.filled_at, order.canceled_at,
-                             order.expired_at, order.replaced_at)
+                             order.extended_hours, order.status, self._pst(order.failed_at), self._pst(order.filled_at),
+                             self._pst(order.canceled_at), self._pst(order.expired_at), self._pst(order.replaced_at))
 
         logger.info(f"Updated order id: {order.id}")
 
     @staticmethod
     def _check_float(value):
         return 0.00 if value is None else float(value)
+
+    @staticmethod
+    def _pst(timestamp):
+        if timestamp is None:
+            return None
+        return timestamp.astimezone(timezone)

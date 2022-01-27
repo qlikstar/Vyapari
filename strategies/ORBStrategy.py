@@ -6,11 +6,12 @@ from typing import List
 
 import pandas
 import talib
+from fmp_python.fmp import Interval
 from kink import di, inject
 
 from core.schedule import SafeScheduler, FrequencyTag
 from scheduled_jobs.watchlist import WatchList
-from services.data_service import DataService, Timeframe
+from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
 from strategies.strategy import Strategy
@@ -51,6 +52,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ORBStock:
     symbol: str
+    order_price: float
+    qty: float
     atr_to_price: float
     side: str
     lower_bound: float
@@ -112,47 +115,60 @@ class ORBStrategy(Strategy):
         # First check if stock not already purchased
         held_stocks = [x.symbol for x in self.position_service.get_all_positions()]
 
-        for stock in self.todays_stock_picks:
+        for stock in self.todays_stock_picks :
             logger.info(f"Checking {stock.symbol} to place an order ...")
+
             # Open new positions on stocks only if not already held or if not traded today
-            if stock.symbol not in held_stocks:
-                current_market_price = self.data_service.get_current_price(stock.symbol)
+            if stock.symbol not in held_stocks and stock.symbol not in self.stocks_traded_today:
                 trade_count = len(self.stocks_traded_today)
 
                 # Enter the position only on high volume
                 if self._with_high_momentum(stock):
+                    current_market_price = self.data_service.get_current_price(stock.symbol)
 
                     # long
-                    if stock.side == 'long' and stock.upper_bound + (0.25 * stock.range) < current_market_price \
+                    if stock.side == 'long' and current_market_price > stock.upper_bound + (0.25 * stock.range) \
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price - (1.0 * stock.range)
-                        take_profit = current_market_price + (1.5 * stock.range)
+                        # stop_loss = current_market_price - (1.0 * stock.range)
+                        # take_profit = current_market_price + (1.5 * stock.range)
 
-                        self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
-                                                               stop_loss, take_profit)
-                        # self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares,
-                        #                                                 ORBStrategy.TRAIL_PERCENT)
+                        # self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
+                        #                                        stop_loss, take_profit)
+                        self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, stock.range)
+                        stock.order_price = current_market_price
+                        stock.qty = no_of_shares
                         self.stocks_traded_today.append(stock.symbol)
 
                     # short
                     if stock.side == 'short' and self.order_service.is_shortable(stock.symbol) \
-                            and stock.lower_bound - (0.25 * stock.range) > current_market_price \
+                            and current_market_price < stock.lower_bound - (0.25 * stock.range) \
                             and trade_count < ORBStrategy.MAX_NUM_STOCKS:
                         logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = current_market_price + (1.0 * stock.range)
-                        take_profit = current_market_price - (1.5 * stock.range)
+                        # stop_loss = current_market_price + (1.0 * stock.range)
+                        # take_profit = current_market_price - (1.5 * stock.range)
 
-                        self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
-                                                               stop_loss, take_profit)
+                        # self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
+                        #                                        stop_loss, take_profit)
 
-                        # self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares,
-                        #                                                 ORBStrategy.TRAIL_PERCENT)
+                        self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, stock.range)
+                        stock.order_price = current_market_price
+                        stock.qty = no_of_shares
+
                         self.stocks_traded_today.append(stock.symbol)
+
+            # Check if the position can be closed, if it hits the upper limit
+            if stock.symbol in held_stocks:
+                current_market_price = self.data_service.get_current_price(stock.symbol)
+                if stock.side == "long" and current_market_price > stock.order_price + (2 * stock.range):
+                    self.order_service.market_sell(stock.symbol, stock.qty)
+
+                if stock.side == "short" and current_market_price < stock.order_price - (2 * stock.range):
+                    self.order_service.market_buy(stock.symbol, stock.qty)
 
     def populate_opening_range(self) -> None:
         for stock_pick in self.pre_stock_picks:
@@ -160,7 +176,7 @@ class ORBStrategy(Strategy):
             if len(opening_bounds) == 2:
                 lower_bound, upper_bound = opening_bounds
                 o_range = round(upper_bound - lower_bound, 3)
-                orb_stock = ORBStock(stock_pick.symbol, stock_pick.atr_to_price, stock_pick.side,
+                orb_stock = ORBStock(stock_pick.symbol, 0, 0, stock_pick.atr_to_price, stock_pick.side,
                                      lower_bound, upper_bound, o_range)
                 self.todays_stock_picks.append(orb_stock)
 
@@ -175,8 +191,12 @@ class ORBStrategy(Strategy):
         stock_info: List[ORBStock] = []
 
         for count, stock in enumerate(from_watchlist):
+            df = None
+            try:
+                df = self._get_stock_df(stock)
+            except Exception as ex:
+                logger.warning(f"symbol {stock} does not exist: {ex}")
 
-            df = self._get_stock_df(stock)
             if df is None:
                 continue
 
@@ -206,9 +226,9 @@ class ORBStrategy(Strategy):
                     logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} '
                                 f'has an ATR:price ratio of {atr_to_price}%')
                     if long:
-                        stock_info.append(ORBStock(stock, atr_to_price, 'long', 0, 0, 0))
+                        stock_info.append(ORBStock(stock, 0, 0, atr_to_price, 'long', 0, 0, 0))
                     else:
-                        stock_info.append(ORBStock(stock, atr_to_price, 'short', 0, 0, 0))
+                        stock_info.append(ORBStock(stock, 0, 0, atr_to_price, 'short', 0, 0, 0))
             except Exception as ex:
                 logger.warning(f"Could not process {stock}: {ex}")
 
@@ -228,7 +248,7 @@ class ORBStrategy(Strategy):
             logger.info(f'data for {stock} exists locally')
             df = pandas.read_pickle(df_path)
         else:
-            df = self.data_service.get_bars_limit(stock, Timeframe.DAY, limit=ORBStrategy.BARSET_RECORDS)
+            df = self.data_service.get_daily_bars(stock, limit=ORBStrategy.BARSET_RECORDS)
             # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
             # df['net_change'] = 1 + (df['pct_change'] / 100)
             # df['cum_change'] = df['net_change'].cumprod()
@@ -238,18 +258,22 @@ class ORBStrategy(Strategy):
 
     def _get_opening_bounds(self, symbol) -> List[float]:
         today = date.today().isoformat()
-        from_time = f'{today}T09:30:00-05:00'
-        until_time = f'{today}T10:15:00-05:00'
+        from_time = f'{today} 09:29:00'
+        until_time = f'{today} 10:00:00'
 
         # fix reduce the no of missing bars
-        one_minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_1, from_time, until_time)
-        five_minute_bars = self.data_service.get_bars_from(symbol, Timeframe.MIN_5, from_time, until_time)
+        one_min_bars_all = self.data_service.get_intra_day_bars(symbol, Interval.MIN_1)
+        one_min_bars = one_min_bars_all[(one_min_bars_all.index > from_time) & (one_min_bars_all.index <= until_time)]
 
-        highs = one_minute_bars['high'].to_list()
-        highs.extend(five_minute_bars['high'].to_list())
+        five_min_bars_all = self.data_service.get_intra_day_bars(symbol, Interval.MIN_5)
+        five_min_bars = five_min_bars_all[(five_min_bars_all.index > from_time) &
+                                          (five_min_bars_all.index <= until_time)]
 
-        lows = one_minute_bars['low'].to_list()
-        lows.extend(five_minute_bars['low'].to_list())
+        highs = one_min_bars['high'].to_list()
+        highs.extend(five_min_bars['high'].to_list())
+
+        lows = one_min_bars['low'].to_list()
+        lows.extend(five_min_bars['low'].to_list())
 
         if len(highs) >= 2 and len(lows) >= 2:
             return [min(lows), max(highs)]
@@ -258,16 +282,12 @@ class ORBStrategy(Strategy):
 
     def _with_high_momentum(self, stock) -> bool:
         symbol = stock.symbol
-        raw_df = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 14)
+        raw_df = self.data_service.get_intra_day_bars(symbol, Interval.MIN_5)
         df = self.vwap(raw_df)
-
-        # volumes = raw_df['volume'].to_list()
-        # volume_mean = mean(volumes[:-1])
-        # if volumes[-1] > volume_mean * 2.0:
 
         ha_df = self.heiken_ashi(df)
         ha_green = True if ha_df.iloc[-1]['HA_Close'] > ha_df.iloc[-1]['HA_Open'] else False
-        buffer = df.iloc[-1]['close'] * 0.001
+        buffer = df.iloc[-1]['close'] * 0.002
         logger.info(f'{stock} -> HA Green: {ha_green}, Open : {df.iloc[-1]["open"]}, VWAP: {df.iloc[-1]["VWAP"]}')
         if ha_green and df.iloc[-1]['open'] > df.iloc[-1]['VWAP'] + buffer:
             return True

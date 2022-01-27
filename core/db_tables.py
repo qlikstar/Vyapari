@@ -3,7 +3,7 @@ from peewee import *
 from playhouse.pool import PooledMySQLDatabase
 
 # TODO : Move these out
-host = 'db'
+host = 'localhost'
 user = 'root'
 password = 'password'
 db_name = 'vyapari'

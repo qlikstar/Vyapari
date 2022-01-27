@@ -18,9 +18,6 @@ STOP_TRADING = "11:55"
 MARKET_CLOSE = "12:00"
 
 
-# UNTIL_MARKET_CLOSE = datetime.strptime(MARKET_CLOSE, '%H:%M').time()
-
-
 class SchedulerService(object):
     def __init__(self):
         self.app_config: AppConfig = di[AppConfig]

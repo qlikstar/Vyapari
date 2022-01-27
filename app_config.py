@@ -23,7 +23,7 @@ class AppConfig(object):
         strategy_class = getattr(importlib.import_module(f"strategies.{self.strategy_name}"), self.strategy_name)
         self.strategy = strategy_class()
 
-        self.database = di[Database]
+        self.database: Database = di[Database]
         self.order_service = di[OrderService]
         self.initial_steps = di[InitialSteps]
         self.intermediate = di[Intermediate]

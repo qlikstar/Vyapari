@@ -7,11 +7,12 @@ from typing import List
 import pandas
 import talib
 from attr import dataclass
+from fmp_python.fmp import Interval
 from kink import di, inject
 
 from core.schedule import SafeScheduler, FrequencyTag
 from scheduled_jobs.watchlist import WatchList
-from services.data_service import DataService, Timeframe
+from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
 
@@ -154,7 +155,8 @@ class LWBreakout(object):
 
                 # choose the most volatile stocks
                 if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
-                    logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} has an ATR:price ratio of {atr_to_price}%')
+                    logger.info(f'[{count + 1}/{len(from_watchlist)}] -> '
+                                f'{stock} has an ATR:price ratio of {atr_to_price}%')
                     stock_info.append(LWStock(stock, y_change, atr_to_price, lw_lower_bound, lw_upper_bound, step))
 
             except Exception as ex:
@@ -176,7 +178,7 @@ class LWBreakout(object):
             logger.info(f'data for {stock} exists locally')
             df = pandas.read_pickle(df_path)
         else:
-            df = self.data_service.get_bars_limit(stock, Timeframe.DAY, limit=LWBreakout.BARSET_RECORDS)
+            df = self.data_service.get_daily_bars(stock, limit=LWBreakout.BARSET_RECORDS)
             # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
             # df['net_change'] = 1 + (df['pct_change'] / 100)
             # df['cum_change'] = df['net_change'].cumprod()
@@ -185,7 +187,7 @@ class LWBreakout(object):
         return df
 
     def _with_high_volume(self, symbol):
-        minute_bars = self.data_service.get_bars_limit(symbol, Timeframe.MIN_5, 5)
+        minute_bars = self.data_service.get_intra_day_bars(symbol, Interval.MIN_5)
         volumes = minute_bars['volume'].to_list()
         volume_mean = mean(volumes[:-1])
         return volumes[-1] > volume_mean * 3.0
