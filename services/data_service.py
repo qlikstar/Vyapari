@@ -1,7 +1,6 @@
 from enum import Enum
 
-import alpaca_trade_api as alpaca_api
-from alpaca_trade_api.entity import BarSet
+from fmp_python.fmp import FMP, Interval
 from kink import inject
 
 
@@ -16,19 +15,20 @@ class Timeframe(Enum):
 class DataService(object):
 
     def __init__(self):
-        self.api = alpaca_api.REST()
+        self.api = FMP()
 
     def get_current_price(self, symbol) -> float:
-        return self.api.get_last_trade(symbol).price
+        return self.api.get_quote_short(symbol).iloc[-1]['price']
 
-    # TODO : get_barset has been deprecated use get_bars instead
-    # self.api.get_bars('AAPL', TimeFrame.Day, start='2021-09-12', end="2021-09-21").df
-    # However, this does not allow query for current date !!!
-    def get_bars_limit(self, symbol: str, timeframe: Timeframe, limit: int) -> BarSet:
-        return self.api.get_barset(symbol, timeframe.value, limit).df[symbol]
+    def get_daily_bars(self, symbol: str, limit: int):
+        bars = self.api.get_historical_price(symbol, limit)[::-1]
+        bars.set_index('date', inplace=True)
+        return bars
 
-    def get_bars_from(self, symbol: str, timeframe: Timeframe, from_time: str, until_time: str) -> BarSet:
-        return self.api.get_barset(symbol, timeframe.value, start=from_time, until=until_time).df[symbol]
+    def get_intra_day_bars(self, symbol: str, interval: Interval):
+        bars = self.api.get_historical_chart(symbol, interval)[::-1]
+        bars.set_index('date', inplace=True)
+        return bars
 
-    def save_history(self, symbol, timeframe: Timeframe, limit: int = 252):
+    def save_history(self, symbol, interval: Interval, limit: int = 252):
         pass
