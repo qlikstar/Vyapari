@@ -16,11 +16,17 @@ This project is highly customizable and is based on the following:
 ## Architecture
 ![Vyapari](https://user-images.githubusercontent.com/4952220/134234830-a3ecd063-53ec-4a61-8a9e-72267e6e1794.jpeg)
 
-## How to run
+## Run the service locally for development
 - Rename the `env.yml.sample` to `env.yml`
-- Populate the required values for Alpaca and Pushover
-- Run `docker-compose up` to bring up Mysql8 instance
-- Run the following command `make clean install run`
+- Populate the required values for Alpaca and Telegram and FMP credentials
+- Run `docker-compose -f docker-compose-mysql.yml up -d` to bring up Mysql8 instance
+- Run the following command `make run`
+
+## Run the service on a remote instance
+- Rename the `env.yml.sample` to `env.yml`
+- Populate the required values for Alpaca, Telegram and FMP credentials
+- Run `docker-compose up` and you should see the server running
+- Use `docker-compose up --build` in case you modify any `.py` files
   
 ## Setup Webhook for Telegram
 - Setup webhook locally: https://github.com/azimjohn/jprq-python-client

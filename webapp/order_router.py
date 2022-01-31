@@ -62,6 +62,13 @@ async def get_all_orders(for_date: str):
     return order_service.get_all_orders(dt)
 
 
-@route.post("/update", response_model=List[OrderModel], summary="Update saved orders", description="Returns all orders")
+@route.post("/update", response_model=List[OrderModel], summary="Update saved orders",
+            description="Returns all updated orders")
 async def update_open_orders():
     return order_service.update_all_open_orders()
+
+
+@route.post("/update/{order_id}", response_model=List[OrderModel], summary="Update saved order by id",
+            description="Returns updated order")
+async def update_order(order_id: str):
+    return order_service.update_saved_order(order_id)

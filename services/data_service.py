@@ -2,6 +2,7 @@ from enum import Enum
 
 from fmp_python.fmp import FMP, Interval
 from kink import inject
+from pandas import DataFrame
 
 
 class Timeframe(Enum):
@@ -32,3 +33,13 @@ class DataService(object):
 
     def save_history(self, symbol, interval: Interval, limit: int = 252):
         pass
+
+    def screen_stocks(self, market_cap_lt: int = None, market_cap_gt: int = None, price_lt: int = None,
+                      price_gt: int = None, beta_lt: float = None, beta_gt: float = None, volume_lt: int = None,
+                      volume_gt: int = None, is_etf: bool = None, limit: int = 1000) -> DataFrame:
+
+        # (volume_gt=100000, price_gt=20, price_lt=500, beta_gt=0.3, limit=5000)
+        return self.api.get_stock_screener(market_cap_lt=market_cap_lt, market_cap_gt=market_cap_gt,
+                                           volume_lt=volume_lt, volume_gt=volume_gt, price_lt=price_lt,
+                                           price_gt=price_gt, is_etf=is_etf, beta_lt=beta_lt,
+                                           beta_gt=beta_gt, exchange=['NYSE', 'NASDAQ', 'AMEX'], limit=limit)

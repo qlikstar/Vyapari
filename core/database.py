@@ -144,7 +144,7 @@ class Database(object):
 
     @staticmethod
     def get_by_id(order_id: str) -> OrderEntity:
-        return wrap(OrderEntity.select().where(OrderEntity.id == order_id))
+        return wrap(OrderEntity.get_by_id(order_id))
 
     @staticmethod
     def get_latest_filled_dt(symbol: str) -> datetime:

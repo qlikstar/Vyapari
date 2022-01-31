@@ -24,3 +24,4 @@
 - Install TA-Lib: https://sachsenhofer.io/install-ta-lib-ubuntu-server/
 - SSH into a stopped container: docker run -it --rm --name newname vyapari_backend:latest bash
 - Vue.js template : https://dev.to/markc86/50-awesome-vuejs-templates-and-themes-1pln
+- Market Edge Strategy: https://www.marketedge.com/MarketEdge/Help/techTerm.htm 
