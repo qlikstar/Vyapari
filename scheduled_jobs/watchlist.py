@@ -10,6 +10,7 @@ from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
 
 logger = logging.getLogger(__name__)
 
+
 @inject
 class WatchList(object):
     nasdaq = "https://api.nasdaq.com/api/screener/stocks?tableonly=true"
@@ -32,14 +33,8 @@ class WatchList(object):
         nasdaq_records = data['data']['table']['rows']
         all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
         logger.info(f"All Stocks: {all_stocks}")
-        all_stocks.extend(self.get_high_vol_etfs())
+        all_stocks.extend(get_high_vol_etfs())
         return all_stocks
-
-    @staticmethod
-    def get_high_vol_etfs() -> List[str]:
-        return ['SQQQ', 'SPY', 'XLF', 'QQQ', 'TQQQ', 'UVXY', 'VXX', 'EEM', 'IWM', 'XLE', 'FXI', 'EWZ', 'HYG', 'EFA',
-                'SLV', 'SDS', 'SOXS', 'GDX', 'TLT', 'KWEB', 'SOXL', 'LQD', 'SPXU', 'TZA', 'IEMG', 'XLU', 'VWO', 'XLV',
-                'XLP', 'VEA', 'KOLD', 'XLI', 'XLK', 'IAU', 'TNA', 'QID', 'JETS', 'IEF']
 
     def _get_nasdaq_buy_stocks(self):
         # api used by https://www.nasdaq.com/market-activity/stocks/screener
@@ -71,3 +66,9 @@ class WatchList(object):
             print('NASDAQ CONNECTION ERROR: {}'.format(e))
             time.sleep(randint(2, 5))
             self._get_nasdaq_buy_stocks()
+
+
+def get_high_vol_etfs() -> List[str]:
+    return ['SQQQ', 'SPY', 'XLF', 'QQQ', 'TQQQ', 'UVXY', 'VXX', 'EEM', 'IWM', 'XLE', 'FXI', 'EWZ', 'HYG', 'EFA',
+            'SLV', 'SDS', 'SOXS', 'GDX', 'TLT', 'KWEB', 'SOXL', 'LQD', 'SPXU', 'TZA', 'IEMG', 'XLU', 'VWO', 'XLV',
+            'XLP', 'VEA', 'KOLD', 'XLI', 'XLK', 'IAU', 'TNA', 'QID', 'JETS', 'IEF']

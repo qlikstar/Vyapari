@@ -31,15 +31,15 @@ Rules:
     3. Better chances are there if the closing price is above VWAP 
     4. Make sure Volatility range  > 18
     5. Stop Loss: Use session low as stop loss. However, 2 step Stop loss approach is better.
-       a. Sell half of the stocks when the price reaches the upper limit.
+       a. Close half of the stocks when the price reaches the upper limit.
        b. Hold rest of the stocks and apply Chandelier stop loss and continue moving
-       c. Sell all at 12 PM
+       c. Close all at 11:55 AM
        
 Steps:
     1. get the list of high volume stocks and ETFs from NASDAQ (TSLA, AAPL, QQQ etc)
     2. determine the stocks with high volatilty (using ATR)
     3. Now, at 7 AM, get the DFs and determine the Opening Range
-    4. Run _singular jobs every 5 minutes to determine if the stock has crossed the upper/lowe range
+    4. Run _singular jobs every 5 minutes to determine if the stock has crossed the upper/lower range
     5. If it hs crossed and the volume for the duration is higher than last 5 durations, enter the trade, 
     with a trailing stop loss equal to twice the 5-min ATR  
        
@@ -52,27 +52,27 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ORBStock:
     symbol: str
-    order_price: float
-    qty: float
     atr_to_price: float
-    side: str
-    lower_bound: float
-    upper_bound: float
-    range: float
+    side: str = None
+    lower_bound: float = 0
+    upper_bound: float = 0
+    running_atr: float = 0
+
+    order_id: str = None
+    order_price: float = 0
+    order_qty: int = 0
 
 
 @inject
 class ORBStrategy(Strategy):
     # TODO : Move the constants to Algo config
     STOCK_MIN_PRICE = 20
-    STOCK_MAX_PRICE = 1000
-    MOVED_DAYS = 3
+    STOCK_MAX_PRICE = 500
     BARSET_RECORDS = 60
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
     MAX_STOCK_WATCH_COUNT = 100
-    TRAIL_PERCENT = 2.00
 
     def __init__(self):
         self.name = "OpeningRangeBreakoutStrategy"
@@ -104,7 +104,7 @@ class ORBStrategy(Strategy):
 
     def run(self, sleep_next_x_seconds, until_time):
         self.order_service.close_all()
-        self.populate_opening_range()
+        self.prep_stocks()
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
@@ -115,69 +115,112 @@ class ORBStrategy(Strategy):
         # First check if stock not already purchased
         held_stocks = [x.symbol for x in self.position_service.get_all_positions()]
 
-        for stock in self.todays_stock_picks :
+        for stock in self.todays_stock_picks:
             logger.info(f"Checking {stock.symbol} to place an order ...")
+            current_market_price = self.data_service.get_current_price(stock.symbol)
 
-            # Open new positions on stocks only if not already held or if not traded today
-            if stock.symbol not in held_stocks and stock.symbol not in self.stocks_traded_today:
-                trade_count = len(self.stocks_traded_today)
+            if stock.symbol not in held_stocks:
 
-                # Enter the position only on high volume
-                if self._with_high_momentum(stock):
-                    current_market_price = self.data_service.get_current_price(stock.symbol)
+                # Open new positions on stocks only if not already held or if not traded today
+                if stock.symbol not in self.stocks_traded_today:
 
                     # long
-                    if stock.side == 'long' and current_market_price > stock.upper_bound + (0.25 * stock.range) \
-                            and trade_count < ORBStrategy.MAX_NUM_STOCKS:
-                        logger.info("Long: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                    if current_market_price > stock.upper_bound + (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 3 * stock.running_atr)
 
-                        # stop_loss = current_market_price - (1.0 * stock.range)
-                        # take_profit = current_market_price + (1.5 * stock.range)
-
-                        # self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares,
-                        #                                        stop_loss, take_profit)
-                        self.order_service.place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, stock.range)
+                        stock.order_id = order_id
                         stock.order_price = current_market_price
-                        stock.qty = no_of_shares
+                        stock.order_qty = no_of_shares
+                        stock.side = 'long'
                         self.stocks_traded_today.append(stock.symbol)
+                        logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
 
                     # short
-                    if stock.side == 'short' and self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound - (0.25 * stock.range) \
-                            and trade_count < ORBStrategy.MAX_NUM_STOCKS:
-                        logger.info("Short: Current market price.. {}: ${}".format(stock.symbol, current_market_price))
+                    if self.order_service.is_shortable(stock.symbol) \
+                            and current_market_price < stock.lower_bound - (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 3 * stock.running_atr)
 
-                        # stop_loss = current_market_price + (1.0 * stock.range)
-                        # take_profit = current_market_price - (1.5 * stock.range)
-
-                        # self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares,
-                        #                                        stop_loss, take_profit)
-
-                        self.order_service.place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, stock.range)
+                        stock.order_id = order_id
                         stock.order_price = current_market_price
-                        stock.qty = no_of_shares
-
+                        stock.order_qty = no_of_shares
+                        stock.side = 'short'
                         self.stocks_traded_today.append(stock.symbol)
+                        logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
 
-            # Check if the position can be closed, if it hits the upper limit
-            if stock.symbol in held_stocks:
-                current_market_price = self.data_service.get_current_price(stock.symbol)
-                if stock.side == "long" and current_market_price > stock.order_price + (2 * stock.range):
-                    self.order_service.market_sell(stock.symbol, stock.qty)
+                else:
+                    # If 'long' position was opened and then stopped out due to loss, and the price goes below the
+                    # lower limit, then open 'short' position now (assuming strong reversal) and
+                    # vice-versa for 'short' positions
 
-                if stock.side == "short" and current_market_price < stock.order_price - (2 * stock.range):
-                    self.order_service.market_buy(stock.symbol, stock.qty)
+                    # Go short the previously closed 'long' positions
+                    logger.info(f"{stock.symbol} was stopped out earlier and will try reversing now... ")
+                    if stock.side == 'long' and self.order_service.is_shortable(stock.symbol) \
+                            and current_market_price < stock.lower_bound + (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
 
-    def populate_opening_range(self) -> None:
+                        no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 3 * stock.running_atr)
+
+                        stock.order_id = order_id
+                        stock.order_price = current_market_price
+                        stock.order_qty = no_of_shares
+                        stock.side = 'short'
+                        logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
+
+                    # Go long the previously closed 'short' positions
+                    if stock.side == 'short' and current_market_price > stock.upper_bound - (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+
+                        no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 3 * stock.running_atr)
+
+                        stock.order_id = order_id
+                        stock.order_price = current_market_price
+                        stock.order_qty = no_of_shares
+                        stock.side = 'long'
+                        logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
+
+            # Check if the stocks hits the first limit, close half of the stocks and decrease the trailing stop by half
+            # OR if the stock hits the upper limit, the position can be closed
+            else:
+
+                if stock.side == "long" and current_market_price > stock.order_price + (3 * stock.running_atr):
+                    logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+                    self.place_smart_stop_loss(stock)
+
+                elif stock.side == "short" and current_market_price < stock.order_price - (3 * stock.running_atr):
+                    logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+                    self.place_smart_stop_loss(stock)
+
+                logger.info(f"Stock data : {stock}")
+
+    def prep_stocks(self) -> None:
         for stock_pick in self.pre_stock_picks:
-            opening_bounds = self._get_opening_bounds(stock_pick.symbol)
-            if len(opening_bounds) == 2:
-                lower_bound, upper_bound = opening_bounds
-                o_range = round(upper_bound - lower_bound, 3)
-                orb_stock = ORBStock(stock_pick.symbol, 0, 0, stock_pick.atr_to_price, stock_pick.side,
-                                     lower_bound, upper_bound, o_range)
+
+            one_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_1)
+            five_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_5)
+
+            opening_range = self._populate_opening_range(stock_pick.symbol, one_min_df, five_min_df)
+            if len(opening_range) == 2:
+                lower_bound, upper_bound = opening_range
+                running_atr = self._get_running_atr(five_min_df)
+
+                orb_stock = ORBStock(stock_pick.symbol, stock_pick.atr_to_price, stock_pick.side,
+                                     lower_bound, upper_bound, running_atr)
                 self.todays_stock_picks.append(orb_stock)
 
         logger.info(f"Today's final stock picks: {len(self.todays_stock_picks)}")
@@ -191,6 +234,7 @@ class ORBStrategy(Strategy):
         stock_info: List[ORBStock] = []
 
         for count, stock in enumerate(from_watchlist):
+
             df = None
             try:
                 df = self._get_stock_df(stock)
@@ -205,7 +249,6 @@ class ORBStrategy(Strategy):
                 continue
 
             try:
-                df = self._get_stock_df(stock)
                 df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
                 df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
                 df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
@@ -213,29 +256,29 @@ class ORBStrategy(Strategy):
                                  and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
                 atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
-                df['RSI'] = talib.RSI(df['close'], timeperiod=14)
-                df['RSI-slope-fast'] = talib.EMA(df['RSI'], timeperiod=9)
-                df['RSI-slope-slow'] = talib.EMA(df['RSI'], timeperiod=14)
-                long = df.iloc[-1]['RSI-slope-fast'] > df.iloc[-1]['RSI-slope-slow'] \
-                       and df.iloc[-5]['RSI-slope-fast'] > df.iloc[-5]['RSI-slope-slow']
-                short = df.iloc[-1]['RSI-slope-fast'] < df.iloc[-1]['RSI-slope-slow'] \
-                        and df.iloc[-5]['RSI-slope-fast'] < df.iloc[-5]['RSI-slope-slow']
+                # df['RSI'] = talib.RSI(df['close'], timeperiod=14)
+                # df['RSI-slope-fast'] = talib.EMA(df['RSI'], timeperiod=9)
+                # df['RSI-slope-slow'] = talib.EMA(df['RSI'], timeperiod=14)
+
+                # Open long positions for increasing RSI and short positions for decreasing RSI only
+                # long = df.iloc[-1]['RSI-slope-fast'] > df.iloc[-1]['RSI-slope-slow'] \
+                #        and df.iloc[-5]['RSI-slope-fast'] > df.iloc[-5]['RSI-slope-slow']
+                # short = df.iloc[-1]['RSI-slope-fast'] < df.iloc[-1]['RSI-slope-slow'] \
+                #         and df.iloc[-5]['RSI-slope-fast'] < df.iloc[-5]['RSI-slope-slow']
 
                 # choose the most volatile stocks
-                if increasing_atr and atr_to_price > 4 and self.order_service.is_tradable(stock) and (long or short):
+                if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
                     logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} '
                                 f'has an ATR:price ratio of {atr_to_price}%')
-                    if long:
-                        stock_info.append(ORBStock(stock, 0, 0, atr_to_price, 'long', 0, 0, 0))
-                    else:
-                        stock_info.append(ORBStock(stock, 0, 0, atr_to_price, 'short', 0, 0, 0))
+                    stock_info.append(ORBStock(stock, atr_to_price))
+                    # if long:
+                    #     stock_info.append(ORBStock(stock, atr_to_price, 'long'))
+                    # else:
+                    #     stock_info.append(ORBStock(stock, atr_to_price, 'short'))
             except Exception as ex:
                 logger.warning(f"Could not process {stock}: {ex}")
 
         pre_stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
-        logger.info(f"Today's pre-stock picks: {len(pre_stock_picks)}")
-        [logger.info(f'{stock_pick}') for stock_pick in pre_stock_picks]
-
         return pre_stock_picks[:ORBStrategy.MAX_STOCK_WATCH_COUNT]
 
     def _get_stock_df(self, stock):
@@ -249,25 +292,39 @@ class ORBStrategy(Strategy):
             df = pandas.read_pickle(df_path)
         else:
             df = self.data_service.get_daily_bars(stock, limit=ORBStrategy.BARSET_RECORDS)
-            # df['pct_change'] = round(((df['close'] - df['open']) / df['open']) * 100, 4)
-            # df['net_change'] = 1 + (df['pct_change'] / 100)
-            # df['cum_change'] = df['net_change'].cumprod()
             df.to_pickle(df_path)
-
         return df
 
-    def _get_opening_bounds(self, symbol) -> List[float]:
+    def place_smart_stop_loss(self, stock: ORBStock) -> None:
+        self.order_service.cancel_order(stock.order_id)
+        qty_to_close: int = int(abs(stock.order_qty / 2))
+
+        if stock.side == 'long':
+            self.order_service.market_sell(stock.symbol, qty_to_close)
+            order_id = self.order_service.place_trailing_stop_order(stock.symbol, 'sell',
+                                                                    stock.order_qty - qty_to_close,
+                                                                    1 * stock.running_atr)
+        else:
+            self.order_service.market_buy(stock.symbol, qty_to_close)
+            order_id = self.order_service.place_trailing_stop_order(stock.symbol, 'buy',
+                                                                    stock.order_qty - qty_to_close,
+                                                                    1 * stock.running_atr)
+
+        stock.order_id = order_id
+        stock.order_qty = stock.order_qty - qty_to_close
+
+    @staticmethod
+    def _populate_opening_range(symbol, one_min_df, five_min_df) -> List[float]:
         today = date.today().isoformat()
+
+        # because FMP data is received in EST
         from_time = f'{today} 09:29:00'
         until_time = f'{today} 10:00:00'
 
         # fix reduce the no of missing bars
-        one_min_bars_all = self.data_service.get_intra_day_bars(symbol, Interval.MIN_1)
-        one_min_bars = one_min_bars_all[(one_min_bars_all.index > from_time) & (one_min_bars_all.index <= until_time)]
-
-        five_min_bars_all = self.data_service.get_intra_day_bars(symbol, Interval.MIN_5)
-        five_min_bars = five_min_bars_all[(five_min_bars_all.index > from_time) &
-                                          (five_min_bars_all.index <= until_time)]
+        one_min_bars = one_min_df[(one_min_df.index > from_time) & (one_min_df.index <= until_time)]
+        five_min_bars = five_min_df[(five_min_df.index > from_time) &
+                                    (five_min_df.index <= until_time)]
 
         highs = one_min_bars['high'].to_list()
         highs.extend(five_min_bars['high'].to_list())
@@ -280,35 +337,8 @@ class ORBStrategy(Strategy):
         logger.warning(f"Record count of 5 and 1 min bars is lesser than threshold for : {symbol}")
         return []
 
-    def _with_high_momentum(self, stock) -> bool:
-        symbol = stock.symbol
-        raw_df = self.data_service.get_intra_day_bars(symbol, Interval.MIN_5)
-        df = self.vwap(raw_df)
-
-        ha_df = self.heiken_ashi(df)
-        ha_green = True if ha_df.iloc[-1]['HA_Close'] > ha_df.iloc[-1]['HA_Open'] else False
-        buffer = df.iloc[-1]['close'] * 0.002
-        logger.info(f'{stock} -> HA Green: {ha_green}, Open : {df.iloc[-1]["open"]}, VWAP: {df.iloc[-1]["VWAP"]}')
-        if ha_green and df.iloc[-1]['open'] > df.iloc[-1]['VWAP'] + buffer:
-            return True
-        if not ha_green and df.iloc[-1]['open'] < df.iloc[-1]['VWAP'] - buffer:
-            return True
-        else:
-            return False
-
     @staticmethod
-    def vwap(df):
-        vol = df['volume'].values
-        tp = (df['low'] + df['close'] + df['high']).div(3).values
-        return df.assign(VWAP=(tp * vol).cumsum() / vol.cumsum())
-
-    @staticmethod
-    def heiken_ashi(df):
-        df_ha = df.copy()
-        df_ha['HA_Close'] = 0.0
-        df_ha['HA_Open'] = 0.0
-        for i in range(df_ha.shape[0]):
-            if i > 0:
-                df_ha.loc[df_ha.index[i], 'HA_Open'] = (df['open'][i - 1] + df['close'][i - 1]) / 2
-            df_ha.loc[df_ha.index[i], 'HA_Close'] = (df['open'][i] + df['close'][i] + df['low'][i] + df['high'][i]) / 4
-        return df_ha
+    def _get_running_atr(five_min_df) -> float:
+        df = five_min_df.tail(50)
+        df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=30)
+        return round(df.iloc[-1]['ATR'], 2)
