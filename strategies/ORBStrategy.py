@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from typing import List
 
@@ -49,6 +50,12 @@ Steps:
 logger = logging.getLogger(__name__)
 
 
+class Target(Enum):
+    INIT = "INIT"
+    FIRST = "FIRST"
+    FINAL = "FINAL"
+
+
 @dataclass
 class ORBStock:
     symbol: str
@@ -61,6 +68,7 @@ class ORBStock:
     order_id: str = None
     order_price: float = 0
     order_qty: int = 0
+    target: Target = Target.INIT
 
 
 @inject
@@ -197,20 +205,36 @@ class ORBStrategy(Strategy):
             # Check if the stocks hits the first limit, close half of the stocks and decrease the trailing stop by half
             # OR if the stock hits the upper limit, the position can be closed
             else:
+                if stock.side == "long":
+                    if stock.target == Target.INIT and \
+                            current_market_price > stock.order_price + (3 * stock.running_atr):
+                        logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+                        self.place_smart_stop_loss(stock)
+                        stock.target = Target.FIRST
 
-                if stock.side == "long" and current_market_price > stock.order_price + (3 * stock.running_atr):
-                    logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                    self.place_smart_stop_loss(stock)
+                    if stock.target == Target.FIRST and \
+                            current_market_price > stock.order_price + (6 * stock.running_atr):
+                        logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+                        self.order_service.market_sell(stock.symbol, stock.order_qty)
+                        stock.target = Target.FINAL
 
-                elif stock.side == "short" and current_market_price < stock.order_price - (3 * stock.running_atr):
-                    logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                    self.place_smart_stop_loss(stock)
+                else:
+                    if stock.target == Target.INIT and \
+                            current_market_price < stock.order_price - (3 * stock.running_atr):
+                        logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+                        self.place_smart_stop_loss(stock)
+                        stock.target = Target.FIRST
 
-                logger.info(f"Stock data : {stock}")
+                    if stock.target == Target.FIRST and \
+                            current_market_price < stock.order_price - (6 * stock.running_atr):
+                        logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+                        self.order_service.market_buy(stock.symbol, stock.order_qty)
+                        stock.target = Target.FINAL
 
     def prep_stocks(self) -> None:
         for stock_pick in self.pre_stock_picks:
 
+            logger.info(f"Prepping for ... {stock_pick.symbol}")
             one_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_1)
             five_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_5)
 

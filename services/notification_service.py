@@ -43,7 +43,8 @@ class TelegramNotification(Notification):
 
     def err_notify(self, message):
         try:
+            logger.error(f"EXCEPTION: {message}")
             asyncio.run(self.telegram.send_message(chat_id=self.chat_id, response=message))
         except Exception as ex:
-            logger.info(f"Exception occurred while sending error notification: {ex}")
+            logger.error(f"Exception occurred while sending error notification: {ex}")
             self.pushover.err_notify(f"ERR: {message}")

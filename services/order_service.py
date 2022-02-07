@@ -62,14 +62,15 @@ class OrderService(object):
     def market_sell(self, symbol: str, qty: int):
         return self._place_market_order(symbol, qty, "sell")
 
-    def _place_market_order(self, symbol, qty, side) -> List[OrderEntity]:
+    def _place_market_order(self, symbol, qty, side) -> str:
         if self.is_market_open():
 
             logger.info(f"Placing market order to {side}: {symbol} : {qty}")
             try:
                 order = self.api.submit_order(symbol, qty, side, "market", "gtc")
                 logger.info(f"Market order to {side}: {qty} shares of {symbol} placed")
-                return self._save_order(order)
+                self._save_order(order)
+                return order.id
             except APIError as api_error:
                 self.notification.err_notify(f"Market order to {side}: {qty} shares of {symbol} "
                                              f"could not be placed: {api_error}")
@@ -103,12 +104,19 @@ class OrderService(object):
 
         if self.is_market_open():
             logger.info(f"Placing bracket order with ${trail_price} to {side}: {symbol} : {qty} ")
+            count = 10
 
-            self._place_market_order(symbol, qty, side)
+            order_id = self._place_market_order(symbol, qty, side)
             trailing_side = 'sell' if side == 'buy' else 'buy'
-            order_id = self.place_trailing_stop_order(symbol, trailing_side, qty, trail_price)
+
+            while self.get_order(order_id).status != "filled" and count > 0:
+                time.sleep(1)
+                count = count - 1
+                logger.info(f"Waiting to fill market order... {count} more seconds")
+
+            ts_order_id = self.place_trailing_stop_order(symbol, trailing_side, qty, trail_price)
             logger.info(f"Bracket trailing stop order placed for: {symbol}")
-            return order_id
+            return ts_order_id
         else:
             logger.info(f"{side} Trailing bracket order could not be placed ...Market is NOT open.. !")
 
@@ -118,6 +126,7 @@ class OrderService(object):
             try:
                 order = self.api.submit_order(symbol, qty, side, type='trailing_stop',
                                               trail_price=str(trail_price), time_in_force='gtc')
+                logger.info(f"Trailing stop order submitted : {order.id}")
                 self._save_order(order)
                 return order.id
             except APIError as api_error:
@@ -126,8 +135,8 @@ class OrderService(object):
         else:
             logger.info(f"{side} Trailing bracket order could not be placed ...Market is NOT open.. !")
 
-    def get_order(self, order_id: str) -> OrderEntity:
-        return self.db.get_by_id(order_id)
+    def get_order(self, order_id: str):
+        return self.update_saved_order(order_id)
 
     def cancel_order(self, order_id: str):
         return self.api.cancel_order(order_id)
