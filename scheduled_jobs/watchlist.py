@@ -5,8 +5,10 @@ from typing import List
 from urllib.parse import urlparse
 
 import requests
-from kink import inject
+from kink import inject, di
 from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
+
+from services.data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +25,23 @@ class WatchList(object):
                                         "=".join(["marketcap", "|".join(WatchList.stocks_type)]),
                                         "=".join(["recommendation", "|".join(WatchList.recommendation_type)])
                                         ])
+        self.data_service: DataService = di[DataService]
 
     def get_universe(self) -> List[str]:
 
         # for stock_type in self.stock_types:
-        logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
-                    .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
-        data = self._get_nasdaq_buy_stocks()
-        nasdaq_records = data['data']['table']['rows']
-        all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
-        logger.info(f"All Stocks: {all_stocks}")
+        # logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
+        #             .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
+        # data = self._get_nasdaq_buy_stocks()
+        # nasdaq_records = data['data']['table']['rows']
+        # all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
+        # logger.info(f"All Stocks: {all_stocks}")
+
+        all_stocks_df = self.data_service.screen_stocks(volume_gt=300000, price_gt=20, price_lt=500,
+                                                        beta_gt=0.3, limit=5000)
+        all_stocks = list(all_stocks_df['symbol'])
         all_stocks.extend(get_high_vol_etfs())
-        return all_stocks
+        return list(set(all_stocks))
 
     def _get_nasdaq_buy_stocks(self):
         # api used by https://www.nasdaq.com/market-activity/stocks/screener

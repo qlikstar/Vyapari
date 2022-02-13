@@ -138,7 +138,7 @@ class ORBStrategy(Strategy):
 
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
                         order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 3 * stock.running_atr)
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -155,7 +155,7 @@ class ORBStrategy(Strategy):
 
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
                         order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 3 * stock.running_atr)
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -173,12 +173,11 @@ class ORBStrategy(Strategy):
                     # Go short the previously closed 'long' positions
                     logger.info(f"{stock.symbol} was stopped out earlier and will try reversing now... ")
                     if stock.side == 'long' and self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound + (1 * stock.running_atr) \
-                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+                            and current_market_price < stock.lower_bound + (1 * stock.running_atr):
 
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
                         order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 3 * stock.running_atr)
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -188,12 +187,11 @@ class ORBStrategy(Strategy):
                         logger.info(f"Stock data : {stock}")
 
                     # Go long the previously closed 'short' positions
-                    if stock.side == 'short' and current_market_price > stock.upper_bound - (1 * stock.running_atr) \
-                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+                    if stock.side == 'short' and current_market_price > stock.upper_bound - (1 * stock.running_atr):
 
                         no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
                         order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 3 * stock.running_atr)
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -207,27 +205,29 @@ class ORBStrategy(Strategy):
             else:
                 if stock.side == "long":
                     if stock.target == Target.INIT and \
-                            current_market_price > stock.order_price + (3 * stock.running_atr):
+                            current_market_price > stock.order_price + (2 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                        self.place_smart_stop_loss(stock)
+                        stock.order_id = self.place_smart_stop_loss(stock)
                         stock.target = Target.FIRST
 
                     if stock.target == Target.FIRST and \
-                            current_market_price > stock.order_price + (6 * stock.running_atr):
+                            current_market_price > stock.order_price + (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+                        self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_sell(stock.symbol, stock.order_qty)
                         stock.target = Target.FINAL
 
                 else:
                     if stock.target == Target.INIT and \
-                            current_market_price < stock.order_price - (3 * stock.running_atr):
+                            current_market_price < stock.order_price - (2 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                        self.place_smart_stop_loss(stock)
+                        stock.order_id = self.place_smart_stop_loss(stock)
                         stock.target = Target.FIRST
 
                     if stock.target == Target.FIRST and \
-                            current_market_price < stock.order_price - (6 * stock.running_atr):
+                            current_market_price < stock.order_price - (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+                        self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_buy(stock.symbol, stock.order_qty)
                         stock.target = Target.FINAL
 
@@ -319,7 +319,7 @@ class ORBStrategy(Strategy):
             df.to_pickle(df_path)
         return df
 
-    def place_smart_stop_loss(self, stock: ORBStock) -> None:
+    def place_smart_stop_loss(self, stock: ORBStock) -> str:
         self.order_service.cancel_order(stock.order_id)
         qty_to_close: int = int(abs(stock.order_qty / 2))
 
@@ -336,6 +336,7 @@ class ORBStrategy(Strategy):
 
         stock.order_id = order_id
         stock.order_qty = stock.order_qty - qty_to_close
+        return order_id
 
     @staticmethod
     def _populate_opening_range(symbol, one_min_df, five_min_df) -> List[float]:

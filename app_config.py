@@ -23,11 +23,11 @@ class AppConfig(object):
         self.strategy = strategy_class()
 
         self.database: Database = di[Database]
-        self.order_service = di[OrderService]
-        self.initial_steps = di[InitialSteps]
-        self.intermediate = di[Intermediate]
-        self.cleanup = di[CleanUp]
-        self.final_steps = di[FinalSteps]
+        self.order_service: OrderService = di[OrderService]
+        self.initial_steps: InitialSteps = di[InitialSteps]
+        self.intermediate: Intermediate = di[Intermediate]
+        self.cleanup: CleanUp = di[CleanUp]
+        self.final_steps: FinalSteps = di[FinalSteps]
 
     def initialize(self):
         logger.info(f"Initializing trader ... Running strategy: {self.strategy_name}")
