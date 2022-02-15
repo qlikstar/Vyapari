@@ -37,8 +37,8 @@ class WatchList(object):
         # all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
         # logger.info(f"All Stocks: {all_stocks}")
 
-        all_stocks_df = self.data_service.screen_stocks(volume_gt=300000, price_gt=20, price_lt=500,
-                                                        beta_gt=0.3, limit=5000)
+        all_stocks_df = self.data_service.screen_stocks(volume_gt=500000, price_gt=20, price_lt=500,
+                                                        beta_gt=0.5, limit=5000)
         all_stocks = list(all_stocks_df['symbol'])
         all_stocks.extend(get_high_vol_etfs())
         return list(set(all_stocks))
