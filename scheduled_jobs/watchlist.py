@@ -27,7 +27,7 @@ class WatchList(object):
                                         ])
         self.data_service: DataService = di[DataService]
 
-    def get_universe(self) -> List[str]:
+    def get_universe(self, volume_gt, beta_gt, price_gt=20, price_lt=1000, limit=5000) -> List[str]:
 
         # for stock_type in self.stock_types:
         # logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
@@ -37,10 +37,11 @@ class WatchList(object):
         # all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
         # logger.info(f"All Stocks: {all_stocks}")
 
-        all_stocks_df = self.data_service.screen_stocks(volume_gt=500000, price_gt=20, price_lt=500,
-                                                        beta_gt=0.5, limit=5000)
+        all_stocks_df = self.data_service.screen_stocks(volume_gt=volume_gt, price_gt=price_gt, price_lt=price_lt,
+                                                        beta_gt=beta_gt, limit=limit)
         all_stocks = list(all_stocks_df['symbol'])
         all_stocks.extend(get_high_vol_etfs())
+        print(f"All stocks: {all_stocks}")
         return list(set(all_stocks))
 
     def _get_nasdaq_buy_stocks(self):

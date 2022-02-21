@@ -19,22 +19,13 @@ from strategies.strategy import Strategy
 
 '''
 References:
-    1. https://www.youtube.com/watch?v=ULWtFOuUiHw : How To Trade OPENING RANGE BREAKOUT STRATEGY 
-       And How To Select Stocks (Intraday Trading)
-    2. https://www.youtube.com/watch?v=hk4d8AxbQ3A : OPENING RANGE In PRICE ACTION Trading (3 RULES That WORK)   
-    2. https://www.youtube.com/watch?v=RZ_4OI_K6Aw: Python implementation 
-    3. More info: https://www.google.com/amp/s/bullishbears.com/opening-range-breakout/amp/
+    1. https://www.youtube.com/watch?v=exGuyBnhN_8&t=932s
     
 Rules:
-    1. when market opens, determine the range of the breakout during the first 30 min.
-    This range is the breakout range.
-    2. In order to avoid false breakouts, check for volume. It MUST be higher than the recent volumes.
-    3. Better chances are there if the closing price is above VWAP 
-    4. Make sure Volatility range  > 18
-    5. Stop Loss: Use session low as stop loss. However, 2 step Stop loss approach is better.
-       a. Close half of the stocks when the price reaches the upper limit.
-       b. Hold rest of the stocks and apply Chandelier stop loss and continue moving
-       c. Close all at 11:55 AM
+    1. Before market opens, get all the stocks that have been consolidating over a very narrow range say 2% / 3% 
+       for a period of 14 / 21 days
+    2. Now, check every hour from 8PM onwards to see if the consolidating range has broken out by the stock by 1%.
+    3. If yes, enter "long" position, by placing a trailing stop loss of 2 * ATR
        
 Steps:
     1. get the list of high volume stocks and ETFs from NASDAQ (TSLA, AAPL, QQQ etc)
@@ -57,13 +48,13 @@ class Target(Enum):
 
 
 @dataclass
-class SelectedStock:
+class BreakoutStock:
     symbol: str
     atr_to_price: float
     side: str = None
     lower_bound: float = 0
     upper_bound: float = 0
-    range: float = 0
+    running_atr: float = 0
 
     order_id: str = None
     order_price: float = 0
@@ -72,11 +63,11 @@ class SelectedStock:
 
 
 @inject
-class ORBStrategy(Strategy):
+class DailyBreakoutStrategy(Strategy):
     # TODO : Move the constants to Algo config
     STOCK_MIN_PRICE = 20
     STOCK_MAX_PRICE = 500
-    BARSET_COUNT = 60
+    BARSET_RECORDS = 60
 
     AMOUNT_PER_ORDER = 1000
     MAX_NUM_STOCKS = 40
@@ -90,8 +81,8 @@ class ORBStrategy(Strategy):
         self.schedule: SafeScheduler = di[SafeScheduler]
         self.data_service: DataService = di[DataService]
 
-        self.pre_stock_picks: List[SelectedStock] = []
-        self.todays_stock_picks: List[SelectedStock] = []
+        self.pre_stock_picks: List[BreakoutStock] = []
+        self.todays_stock_picks: List[BreakoutStock] = []
         self.stocks_traded_today: List[str] = []
 
     def get_algo_name(self) -> str:
@@ -132,15 +123,13 @@ class ORBStrategy(Strategy):
                 # Open new positions on stocks only if not already held or if not traded today
                 if stock.symbol not in self.stocks_traded_today:
 
-                    no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                    trail_price = round(stock.atr_to_price / 4, 2)
-
                     # long
-                    if current_market_price > stock.upper_bound + (0.1 * stock.range) \
-                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+                    if current_market_price > stock.upper_bound + (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < DailyBreakoutStrategy.MAX_NUM_STOCKS:
 
-                        order_id = self.order_service.place_trailing_bracket_order(
-                            stock.symbol, "buy", no_of_shares, trail_price)
+                        no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -152,11 +141,12 @@ class ORBStrategy(Strategy):
 
                     # short
                     if self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound - (0.1 * stock.range) \
-                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+                            and current_market_price < stock.lower_bound - (1 * stock.running_atr) \
+                            and len(self.stocks_traded_today) < DailyBreakoutStrategy.MAX_NUM_STOCKS:
 
-                        order_id = self.order_service.place_trailing_bracket_order(
-                            stock.symbol, "sell", no_of_shares, trail_price)
+                        no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -166,55 +156,53 @@ class ORBStrategy(Strategy):
                         logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
                         logger.info(f"Stock data : {stock}")
 
-                # else:
-                #     # If 'long' position was opened and then stopped out due to loss, and the price goes below the
-                #     # lower limit, then open 'short' position now (assuming strong reversal) and
-                #     # vice-versa for 'short' positions
-                #
-                #     # Go short the previously closed 'long' positions
-                #     logger.info(f"{stock.symbol} was stopped out earlier and will try reversing now... ")
-                #     no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                #
-                #     if stock.side == 'long' and self.order_service.is_shortable(stock.symbol) \
-                #             and current_market_price < stock.lower_bound + (0.25 * stock.range):
-                #
-                #         order_id = self.order_service.place_trailing_bracket_order(
-                #             stock.symbol, "sell", no_of_shares, round(current_market_price * 0.02, 2))
-                #
-                #         stock.order_id = order_id
-                #         stock.order_price = current_market_price
-                #         stock.order_qty = no_of_shares
-                #         stock.side = 'short'
-                #         logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} "
-                #                     f"at ${current_market_price}")
-                #         logger.info(f"Stock data : {stock}")
-                #
-                #     # Go long the previously closed 'short' positions
-                #     if stock.side == 'short' and current_market_price > stock.upper_bound - (0.25 * stock.range):
-                #
-                #         order_id = self.order_service.place_trailing_bracket_order(
-                #             stock.symbol, "buy", no_of_shares, round(current_market_price * 0.02, 2))
-                #
-                #         stock.order_id = order_id
-                #         stock.order_price = current_market_price
-                #         stock.order_qty = no_of_shares
-                #         stock.side = 'long'
-                #         logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} "
-                #                     f"at ${current_market_price}")
-                #         logger.info(f"Stock data : {stock}")
+                else:
+                    # If 'long' position was opened and then stopped out due to loss, and the price goes below the
+                    # lower limit, then open 'short' position now (assuming strong reversal) and
+                    # vice-versa for 'short' positions
+
+                    # Go short the previously closed 'long' positions
+                    logger.info(f"{stock.symbol} was stopped out earlier and will try reversing now... ")
+                    if stock.side == 'long' and self.order_service.is_shortable(stock.symbol) \
+                            and current_market_price < stock.lower_bound + (1 * stock.running_atr):
+
+                        no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
+
+                        stock.order_id = order_id
+                        stock.order_price = current_market_price
+                        stock.order_qty = no_of_shares
+                        stock.side = 'short'
+                        logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
+
+                    # Go long the previously closed 'short' positions
+                    if stock.side == 'short' and current_market_price > stock.upper_bound - (1 * stock.running_atr):
+
+                        no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
+                        order_id = self.order_service \
+                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
+
+                        stock.order_id = order_id
+                        stock.order_price = current_market_price
+                        stock.order_qty = no_of_shares
+                        stock.side = 'long'
+                        logger.info(f"Placed REVERSE order for {stock.symbol}:{stock.side} at ${current_market_price}")
+                        logger.info(f"Stock data : {stock}")
 
             # Check if the stocks hits the first limit, close half of the stocks and decrease the trailing stop by half
             # OR if the stock hits the upper limit, the position can be closed
             else:
                 if stock.side == "long":
                     if stock.target == Target.INIT and \
-                            current_market_price > stock.order_price + (round(stock.atr_to_price / 4, 2)):
+                            current_market_price > stock.order_price + (2 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
                         stock.order_id = self.place_smart_stop_loss(stock)
                         stock.target = Target.FIRST
 
                     if stock.target == Target.FIRST and \
-                            current_market_price > stock.order_price + (round(stock.atr_to_price / 2, 2)):
+                            current_market_price > stock.order_price + (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
                         self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_sell(stock.symbol, stock.order_qty)
@@ -222,13 +210,13 @@ class ORBStrategy(Strategy):
 
                 else:
                     if stock.target == Target.INIT and \
-                            current_market_price < stock.order_price - (round(stock.atr_to_price / 4, 2)):
+                            current_market_price < stock.order_price - (2 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
                         stock.order_id = self.place_smart_stop_loss(stock)
                         stock.target = Target.FIRST
 
                     if stock.target == Target.FIRST and \
-                            current_market_price < stock.order_price - (round(stock.atr_to_price / 2, 2)):
+                            current_market_price < stock.order_price - (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
                         self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_buy(stock.symbol, stock.order_qty)
@@ -240,26 +228,25 @@ class ORBStrategy(Strategy):
             logger.info(f"Prepping for ... {stock_pick.symbol}")
             one_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_1)
             five_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_5)
-            fifteen_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_15)
 
-            opening_range = self._populate_opening_range(stock_pick.symbol, one_min_df, five_min_df, fifteen_min_df)
+            opening_range = self._populate_opening_range(stock_pick.symbol, one_min_df, five_min_df)
             if len(opening_range) == 2:
                 lower_bound, upper_bound = opening_range
-                range: float = abs(round(upper_bound - lower_bound, 2))
+                running_atr = self._get_running_atr(five_min_df)
 
-                orb_stock = SelectedStock(stock_pick.symbol, stock_pick.atr_to_price, stock_pick.side,
-                                          lower_bound, upper_bound, range)
+                orb_stock = BreakoutStock(stock_pick.symbol, stock_pick.atr_to_price, stock_pick.side,
+                                          lower_bound, upper_bound, running_atr)
                 self.todays_stock_picks.append(orb_stock)
 
         logger.info(f"Today's final stock picks: {len(self.todays_stock_picks)}")
         [logger.info(f'{stock_pick}') for stock_pick in self.todays_stock_picks]
 
-    def _get_pre_stock_picks(self) -> List[SelectedStock]:
+    def _get_pre_stock_picks(self) -> List[BreakoutStock]:
         # get the best buy and strong buy stock from Nasdaq.com and sort them by the best stocks
 
         logger.info("Downloading data ...")
-        from_watchlist = self.watchlist.get_universe(2000000, 0.5)
-        stock_info: List[SelectedStock] = []
+        from_watchlist = self.watchlist.get_universe()
+        stock_info: List[BreakoutStock] = []
 
         for count, stock in enumerate(from_watchlist):
 
@@ -273,16 +260,15 @@ class ORBStrategy(Strategy):
                 continue
 
             stock_price = df.iloc[-1]['close']
-            if stock_price > ORBStrategy.STOCK_MAX_PRICE or stock_price < ORBStrategy.STOCK_MIN_PRICE:
+            if stock_price > DailyBreakoutStrategy.STOCK_MAX_PRICE or stock_price < DailyBreakoutStrategy.STOCK_MIN_PRICE:
                 continue
 
             try:
-                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=7)
-                # df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
-                # df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
-                increasing_atr = True
-                    # df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
-                    # and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
+                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
+                df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
+                increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                                 and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
                 atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
                 # df['RSI'] = talib.RSI(df['close'], timeperiod=14)
@@ -299,7 +285,7 @@ class ORBStrategy(Strategy):
                 if increasing_atr and atr_to_price > 5 and self.order_service.is_tradable(stock):
                     logger.info(f'[{count + 1}/{len(from_watchlist)}] -> {stock} '
                                 f'has an ATR:price ratio of {atr_to_price}%')
-                    stock_info.append(SelectedStock(stock, atr_to_price))
+                    stock_info.append(BreakoutStock(stock, atr_to_price))
                     # if long:
                     #     stock_info.append(ORBStock(stock, atr_to_price, 'long'))
                     # else:
@@ -308,44 +294,43 @@ class ORBStrategy(Strategy):
                 logger.warning(f"Could not process {stock}: {ex}")
 
         pre_stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
-        return pre_stock_picks[:ORBStrategy.MAX_STOCK_WATCH_COUNT]
+        return pre_stock_picks[:DailyBreakoutStrategy.MAX_STOCK_WATCH_COUNT]
 
-    def _get_stock_df(self, symbol):
+    def _get_stock_df(self, stock):
         data_folder = "data"
         today = date.today().isoformat()
-        df_path = Path("/".join([data_folder, today, symbol + ".pkl"]))
+        df_path = Path("/".join([data_folder, today, stock + ".pkl"]))
         df_path.parent.mkdir(parents=True, exist_ok=True)
 
         if df_path.exists():
-            logger.info(f'data for {symbol} exists locally')
+            logger.info(f'data for {stock} exists locally')
             df = pandas.read_pickle(df_path)
         else:
-            df = self.data_service.get_daily_bars(symbol, limit=ORBStrategy.BARSET_COUNT)
+            df = self.data_service.get_daily_bars(stock, limit=DailyBreakoutStrategy.BARSET_RECORDS)
             df.to_pickle(df_path)
         return df
 
-    def place_smart_stop_loss(self, stock: SelectedStock) -> str:
+    def place_smart_stop_loss(self, stock: BreakoutStock) -> str:
         self.order_service.cancel_order(stock.order_id)
         qty_to_close: int = int(abs(stock.order_qty / 2))
-        trail_price = round(stock.atr_to_price / 4, 2)
 
         if stock.side == 'long':
             self.order_service.market_sell(stock.symbol, qty_to_close)
             order_id = self.order_service.place_trailing_stop_order(stock.symbol, 'sell',
                                                                     stock.order_qty - qty_to_close,
-                                                                    trail_price)
+                                                                    1 * stock.running_atr)
         else:
             self.order_service.market_buy(stock.symbol, qty_to_close)
             order_id = self.order_service.place_trailing_stop_order(stock.symbol, 'buy',
                                                                     stock.order_qty - qty_to_close,
-                                                                    trail_price)
+                                                                    1 * stock.running_atr)
 
         stock.order_id = order_id
         stock.order_qty = stock.order_qty - qty_to_close
         return order_id
 
     @staticmethod
-    def _populate_opening_range(symbol, one_min_df, five_min_df, fifteen_min_df) -> List[float]:
+    def _populate_opening_range(symbol, one_min_df, five_min_df) -> List[float]:
         today = date.today().isoformat()
 
         # because FMP data is received in EST
@@ -354,24 +339,22 @@ class ORBStrategy(Strategy):
 
         # fix reduce the no of missing bars
         one_min_bars = one_min_df[(one_min_df.index > from_time) & (one_min_df.index <= until_time)]
-        five_min_bars = five_min_df[(five_min_df.index > from_time) & (five_min_df.index <= until_time)]
-        fifteen_min_bars = fifteen_min_df[(fifteen_min_df.index > from_time) & (fifteen_min_df.index <= until_time)]
+        five_min_bars = five_min_df[(five_min_df.index > from_time) &
+                                    (five_min_df.index <= until_time)]
 
         highs = one_min_bars['high'].to_list()
         highs.extend(five_min_bars['high'].to_list())
-        highs.extend(fifteen_min_bars['high'].to_list())
 
         lows = one_min_bars['low'].to_list()
         lows.extend(five_min_bars['low'].to_list())
-        lows.extend(fifteen_min_bars['low'].to_list())
 
         if len(highs) >= 2 and len(lows) >= 2:
             return [min(lows), max(highs)]
         logger.warning(f"Record count of 5 and 1 min bars is lesser than threshold for : {symbol}")
         return []
 
-    # @staticmethod
-    # def _get_running_atr(five_min_df) -> float:
-    #     df = five_min_df.tail(50)
-    #     df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=30)
-    #     return round(df.iloc[-1]['ATR'], 2)
+    @staticmethod
+    def _get_running_atr(five_min_df) -> float:
+        df = five_min_df.tail(50)
+        df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=30)
+        return round(df.iloc[-1]['ATR'], 2)

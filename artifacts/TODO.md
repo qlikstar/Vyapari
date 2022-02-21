@@ -26,3 +26,8 @@
 - Vue.js template : https://dev.to/markc86/50-awesome-vuejs-templates-and-themes-1pln
   https://bootstrap-vue.org/themes
 - Market Edge Strategy: https://www.marketedge.com/MarketEdge/Help/techTerm.htm 
+
+### Building Base Docker image commands:
+- go into the artifacts directory
+- `docker build -t qlikstar/python-39-ta-lib:<version> .`
+- `docker push qlikstar/python-39-ta-lib:<version>`

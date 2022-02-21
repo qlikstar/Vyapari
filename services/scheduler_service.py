@@ -13,7 +13,7 @@ from core.schedule import SafeScheduler, FrequencyTag
 logger = logging.getLogger(__name__)
 
 BEFORE_MARKET_OPEN = '06:30'
-START_TRADING = "07:01"
+START_TRADING = "07:16"
 STOP_TRADING = "11:55"
 MARKET_CLOSE = "12:00"
 
@@ -93,10 +93,10 @@ class SchedulerService(object):
             return True
         return False
 
-    # def _run_temp_job(self):
-    #     now_plus_30 = datetime.now() + timedelta(seconds=61)
-    #     at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
-    #     logger.info(f"Temp run once jobs start at: {at_time}")
-    #
-    #     self.schedule.every().day.at(at_time).do(self.app_config.initialize).tag(FrequencyTag.DAILY)
-    #     return self.schedule.cancel_job
+    def _run_temp_job(self):
+        now_plus_30 = datetime.now() + timedelta(seconds=61)
+        at_time = str(now_plus_30.hour).rjust(2, '0') + ":" + str(now_plus_30.minute).rjust(2, '0')
+        logger.info(f"Temp run once jobs start at: {at_time}")
+
+        self.schedule.every().day.at(at_time).do(self.app_config.initialize).tag(FrequencyTag.DAILY)
+        return self.schedule.cancel_job
