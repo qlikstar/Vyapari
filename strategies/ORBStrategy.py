@@ -133,14 +133,15 @@ class ORBStrategy(Strategy):
                 if stock.symbol not in self.stocks_traded_today:
 
                     no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                    trail_price = round(stock.atr_to_price / 4, 2)
 
                     # long
                     if current_market_price > stock.upper_bound + (0.1 * stock.range) \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
 
-                        order_id = self.order_service.place_trailing_bracket_order(
-                            stock.symbol, "buy", no_of_shares, trail_price)
+                        stop_loss = current_market_price - (0.5 * stock.range)
+                        take_profit = current_market_price + stock.range
+                        order_id = self.order_service.place_bracket_order(
+                            stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -155,8 +156,10 @@ class ORBStrategy(Strategy):
                             and current_market_price < stock.lower_bound - (0.1 * stock.range) \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
 
-                        order_id = self.order_service.place_trailing_bracket_order(
-                            stock.symbol, "sell", no_of_shares, trail_price)
+                        stop_loss = current_market_price + (0.5 * stock.range)
+                        take_profit = current_market_price - stock.range
+                        order_id = self.order_service.place_bracket_order(
+                            stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -205,34 +208,34 @@ class ORBStrategy(Strategy):
 
             # Check if the stocks hits the first limit, close half of the stocks and decrease the trailing stop by half
             # OR if the stock hits the upper limit, the position can be closed
-            else:
-                if stock.side == "long":
-                    if stock.target == Target.INIT and \
-                            current_market_price > stock.order_price + (round(stock.atr_to_price / 4, 2)):
-                        logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                        stock.order_id = self.place_smart_stop_loss(stock)
-                        stock.target = Target.FIRST
-
-                    if stock.target == Target.FIRST and \
-                            current_market_price > stock.order_price + (round(stock.atr_to_price / 2, 2)):
-                        logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
-                        self.order_service.cancel_order(stock.order_id)
-                        self.order_service.market_sell(stock.symbol, stock.order_qty)
-                        stock.target = Target.FINAL
-
-                else:
-                    if stock.target == Target.INIT and \
-                            current_market_price < stock.order_price - (round(stock.atr_to_price / 4, 2)):
-                        logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
-                        stock.order_id = self.place_smart_stop_loss(stock)
-                        stock.target = Target.FIRST
-
-                    if stock.target == Target.FIRST and \
-                            current_market_price < stock.order_price - (round(stock.atr_to_price / 2, 2)):
-                        logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
-                        self.order_service.cancel_order(stock.order_id)
-                        self.order_service.market_buy(stock.symbol, stock.order_qty)
-                        stock.target = Target.FINAL
+            # else:
+            #     if stock.side == "long":
+            #         if stock.target == Target.INIT and \
+            #                 current_market_price > stock.order_price + (round(stock.atr_to_price / 4, 2)):
+            #             logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+            #             stock.order_id = self.place_smart_stop_loss(stock)
+            #             stock.target = Target.FIRST
+            #
+            #         if stock.target == Target.FIRST and \
+            #                 current_market_price > stock.order_price + (round(stock.atr_to_price / 2, 2)):
+            #             logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+            #             self.order_service.cancel_order(stock.order_id)
+            #             self.order_service.market_sell(stock.symbol, stock.order_qty)
+            #             stock.target = Target.FINAL
+            #
+            #     else:
+            #         if stock.target == Target.INIT and \
+            #                 current_market_price < stock.order_price - (round(stock.atr_to_price / 4, 2)):
+            #             logger.info(f"{stock.symbol}: Reached FIRST {stock.side} target: ${current_market_price}")
+            #             stock.order_id = self.place_smart_stop_loss(stock)
+            #             stock.target = Target.FIRST
+            #
+            #         if stock.target == Target.FIRST and \
+            #                 current_market_price < stock.order_price - (round(stock.atr_to_price / 2, 2)):
+            #             logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
+            #             self.order_service.cancel_order(stock.order_id)
+            #             self.order_service.market_buy(stock.symbol, stock.order_qty)
+            #             stock.target = Target.FINAL
 
     def prep_stocks(self) -> None:
         for stock_pick in self.pre_stock_picks:
