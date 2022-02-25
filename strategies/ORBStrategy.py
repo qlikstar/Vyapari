@@ -15,6 +15,7 @@ from scheduled_jobs.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
+from services.talib_util import TalibUtil
 from strategies.strategy import Strategy
 
 '''
@@ -48,6 +49,7 @@ Steps:
 '''
 
 logger = logging.getLogger(__name__)
+pandas.set_option("display.max_rows", None, "display.max_columns", None)
 
 
 class Target(Enum):
@@ -113,7 +115,7 @@ class ORBStrategy(Strategy):
     def run(self, sleep_next_x_seconds, until_time):
         self.order_service.close_all()
         self.prep_stocks()
-        self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
+        self.schedule.run_adhoc(self._run_singular, 300, until_time, FrequencyTag.MINUTELY)
 
     def _run_singular(self):
         if not self.order_service.is_market_open():
@@ -125,21 +127,26 @@ class ORBStrategy(Strategy):
 
         for stock in self.todays_stock_picks:
             logger.info(f"Checking {stock.symbol} to place an order ...")
-            current_market_price = self.data_service.get_current_price(stock.symbol)
 
             if stock.symbol not in held_stocks:
 
                 # Open new positions on stocks only if not already held or if not traded today
                 if stock.symbol not in self.stocks_traded_today:
 
+                    current_market_price = self.data_service.get_current_price(stock.symbol)
+
+                    # Get 5M DF
+                    df = self.data_service.get_intra_day_bars(stock.symbol, Interval.MIN_5)
+                    df['EMA'] = talib.EMA(df['close'], timeperiod=9)
+                    ha_df = TalibUtil.heikenashi(df)
                     no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
 
                     # long
-                    if current_market_price > stock.upper_bound + (0.1 * stock.range) \
+                    if ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
 
                         stop_loss = current_market_price - (0.5 * stock.range)
-                        take_profit = current_market_price + stock.range
+                        take_profit = current_market_price + (0.5 * stock.range)
                         order_id = self.order_service.place_bracket_order(
                             stock.symbol, "buy", no_of_shares, stop_loss, take_profit)
 
@@ -150,14 +157,15 @@ class ORBStrategy(Strategy):
                         self.stocks_traded_today.append(stock.symbol)
                         logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
                         logger.info(f"Stock data : {stock}")
+                        logger.info(f"{df.tail(10)}")
 
                     # short
                     if self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound - (0.1 * stock.range) \
+                            and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
 
                         stop_loss = current_market_price + (0.5 * stock.range)
-                        take_profit = current_market_price - stock.range
+                        take_profit = current_market_price - (0.5 * stock.range)
                         order_id = self.order_service.place_bracket_order(
                             stock.symbol, "sell", no_of_shares, stop_loss, take_profit)
 
@@ -168,6 +176,7 @@ class ORBStrategy(Strategy):
                         self.stocks_traded_today.append(stock.symbol)
                         logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
                         logger.info(f"Stock data : {stock}")
+                        logger.info(f"{df.tail(10)}")
 
                 # else:
                 #     # If 'long' position was opened and then stopped out due to loss, and the price goes below the
@@ -284,8 +293,8 @@ class ORBStrategy(Strategy):
                 # df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
                 # df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
                 increasing_atr = True
-                    # df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
-                    # and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
+                # df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
+                # and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
                 atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
 
                 # df['RSI'] = talib.RSI(df['close'], timeperiod=14)
