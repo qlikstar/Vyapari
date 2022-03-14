@@ -103,7 +103,7 @@ class OrderService(object):
     def place_trailing_bracket_order(self, symbol: str, side: str, qty: int, trail_price: float) -> str:
 
         if self.is_market_open():
-            logger.info(f"Placing bracket order with ${trail_price} to {side}: {symbol} : {qty} ")
+            logger.info(f"Placing trailing bracket order with ${trail_price} to {side}: {symbol} : {qty} ")
             count = 10
 
             order_id = self._place_market_order(symbol, qty, side)
@@ -133,7 +133,7 @@ class OrderService(object):
                 self.notification.err_notify(f"Trailing stop order to {side}: {qty} shares of {symbol} "
                                              f"could not be placed: {api_error}")
         else:
-            logger.info(f"{side} Trailing bracket order could not be placed ...Market is NOT open.. !")
+            logger.info(f"{side} Trailing stop order could not be placed ...Market is NOT open.. !")
 
     def get_order(self, order_id: str):
         return self.update_saved_order(order_id)

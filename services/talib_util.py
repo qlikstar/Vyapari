@@ -1,4 +1,12 @@
+from enum import Enum
+
 import pandas as pd
+
+
+class Trend(Enum):
+    BULL = "BULL"
+    BEAR = "BEAR"
+    INDECISIVE = "INDECISIVE"
 
 
 class TalibUtil:
@@ -24,3 +32,14 @@ class TalibUtil:
         heikinashi_df['low'] = heikinashi_df.loc[:, ['open', 'close']].join(df['low']).min(axis=1)
 
         return heikinashi_df
+
+    @classmethod
+    def get_ha_trend(cls, ha_df) -> Trend:
+        latest_row = ha_df.iloc[-1]
+
+        if latest_row['open'] == latest_row['low'] and latest_row['close'] > latest_row['open']:
+            return Trend.BULL
+        elif latest_row['open'] == latest_row['high'] and latest_row['close'] < latest_row['open']:
+            return Trend.BEAR
+        else:
+            return Trend.INDECISIVE

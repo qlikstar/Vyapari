@@ -1,0 +1,11 @@
+version: "3.3"
+services:
+
+# FastAPI
+  vybackend:
+    container_name: vybackend
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/home/app

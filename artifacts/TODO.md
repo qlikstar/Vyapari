@@ -6,11 +6,13 @@
 - [x] Add High volume ETFs to Watchlist
 - [x] Implement Growth % every day in Chat Service
 - [x] Dockerize the service
-- [ ] Build UI for viewing stocks 
+- [x] Build UI for viewing stocks 
+- [ ] Mysql with SQLAlchemy: https://github.com/RobertoPrevato/PythonMySQL  
+- [ ] Postgres: https://www.jeffastor.com/blog/pairing-a-postgresql-db-with-your-dockerized-fastapi-app
+- [ ] Remove UI layer and build separate Vue.js frontend service 
 - [ ] Backtesting strategies: VectorBT
 - [ ] Analyze strategy and optimize   
 - [ ] Save Time series to local DB
-- [ ] Remove UI layer and build separate Vue.js frontend service 
 - [ ] Develop Trading UI: Ref: https://www.youtube.com/watch?v=SVyuxZqbOrE&list=PLvzuUVysUFOuoRna8KhschkVVUo2E2g6G&index=7
 
 
@@ -31,3 +33,7 @@
 - go into the artifacts directory
 - `docker build -t qlikstar/python-39-ta-lib:<version> .`
 - `docker push qlikstar/python-39-ta-lib:<version>`
+
+### Turn SSL off
+Run the following on the DB:
+- `set GLOBAL require_secure_transport = 0;`

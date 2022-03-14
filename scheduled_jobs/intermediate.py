@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from alpaca_trade_api.entity import Order
@@ -6,8 +7,9 @@ from kink import di, inject
 
 from core.schedule import SafeScheduler, FrequencyTag
 from services.broker_service import Broker
-from services.notification_service import Notification
 from services.order_service import OrderService
+
+logger = logging.getLogger(__name__)
 
 
 @inject
@@ -17,7 +19,6 @@ class Intermediate(object):
         self.schedule = di[SafeScheduler]
         self.order_service: OrderService = di[OrderService]
         self.broker = di[Broker]
-        self.notification = di[Notification]
 
     def run(self, sleep_next_x_seconds, until_time):
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.TEN_MINUTELY)
@@ -45,4 +46,4 @@ class Intermediate(object):
         updated_orders: List[Order] = self.order_service.update_all_open_orders()
         for order in updated_orders:
             if order.status == 'filled':
-                self.notification.notify(f"Filled {order.side} order {order.order_type} at ${order.filled_avg_price}")
+                logger.info(f"Filled {order.symbol} order {order.side} at ${order.filled_avg_price}")

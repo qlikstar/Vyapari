@@ -40,7 +40,7 @@ Steps:
 '''
 
 logger = logging.getLogger(__name__)
-
+pandas.set_option("display.max_rows", None, "display.max_columns", None)
 
 @dataclass
 class SelectedStock:
@@ -57,8 +57,8 @@ class RsiHaStrategy(Strategy):
     STOCK_MAX_PRICE = 500
     BARSET_COUNT = 30
 
-    AMOUNT_PER_ORDER = 1000
-    MAX_HELD_STOCKS = 40
+    AMOUNT_PER_ORDER = 4000
+    MAX_HELD_STOCKS = 10
     MAX_STOCK_WATCH_COUNT = 200
 
     def __init__(self):
@@ -110,7 +110,7 @@ class RsiHaStrategy(Strategy):
                 ha_df = TalibUtil.heikenashi(df)
                 trend: str = self._get_ha_trend(ha_df)
 
-                df['EMA'] = talib.EMA(df['close'], timeperiod=9)
+                df['EMA'] = talib.EMA(df['close'], timeperiod=14)
                 df['RSI'] = talib.RSI(df['close'], timeperiod=14)
                 df['RSI-slope-fast'] = talib.EMA(df['RSI'], timeperiod=9)
                 df['RSI-slope-slow'] = talib.EMA(df['RSI'], timeperiod=14)
@@ -124,12 +124,13 @@ class RsiHaStrategy(Strategy):
                         current_market_price = self.data_service.get_current_price(stock.symbol)
                         no_of_shares = int(RsiHaStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = min(list(df['low'][:-7]))
+                        stop_loss = min(list(ha_df['low'][:-7]))
                         take_profit = current_market_price + (2 * (current_market_price - stop_loss))
                         self.order_service.place_bracket_order(stock.symbol, "buy", no_of_shares, stop_loss,
                                                                take_profit)
                         logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
                         logger.info(f"Stock data : {stock}")
+                        logger.info(f"{ha_df.tail(10)}")
                         stock.tracking = False
 
                 if stock.side == "short" and self.order_service.is_shortable(stock.symbol):
@@ -141,12 +142,13 @@ class RsiHaStrategy(Strategy):
                         current_market_price = self.data_service.get_current_price(stock.symbol)
                         no_of_shares = int(RsiHaStrategy.AMOUNT_PER_ORDER / current_market_price)
 
-                        stop_loss = max(list(df['high'][:-7]))
+                        stop_loss = max(list(ha_df['high'][:-7]))
                         take_profit = current_market_price - (2 * (stop_loss - current_market_price))
                         self.order_service.place_bracket_order(stock.symbol, "sell", no_of_shares, stop_loss,
                                                                take_profit)
                         logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
                         logger.info(f"Stock data : {stock}")
+                        logger.info(f"{ha_df.tail(10)}")
                         stock.tracking = False
 
     def _get_todays_stock_picks(self) -> List[SelectedStock]:

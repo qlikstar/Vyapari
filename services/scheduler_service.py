@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 BEFORE_MARKET_OPEN = '06:30'
 START_TRADING = "07:16"
-STOP_TRADING = "11:55"
-MARKET_CLOSE = "12:00"
+STOP_TRADING = "12:30"
+MARKET_CLOSE = "13:00"
 
 
 class SchedulerService(object):
