@@ -146,7 +146,8 @@ class ORBStrategy(Strategy):
                     stop_loss_margin = stock.range
 
                     # long
-                    if ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
+                    if current_market_price > stock.upper_bound \
+                            and ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
                             and TalibUtil.get_ha_trend(ha_df) == Trend.BULL \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
                         order_id = self.order_service.place_trailing_bracket_order(
@@ -163,6 +164,7 @@ class ORBStrategy(Strategy):
 
                     # short
                     if self.order_service.is_shortable(stock.symbol) \
+                            and current_market_price < stock.lower_bound \
                             and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
                             and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
@@ -184,7 +186,7 @@ class ORBStrategy(Strategy):
                 df = self.data_service.get_intra_day_bars(stock.symbol, Interval.MIN_5)
                 df['EMA'] = talib.EMA(df['close'], timeperiod=9)
                 ha_df = TalibUtil.heikenashi(df)
-                profit_margin = 0.8 * stock.range
+                profit_margin = 0.5 * stock.range
 
                 # check timeout
                 if stock.target == Target.INIT and self._check_timeout():

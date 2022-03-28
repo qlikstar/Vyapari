@@ -13,7 +13,7 @@ from core.schedule import SafeScheduler, FrequencyTag
 logger = logging.getLogger(__name__)
 
 BEFORE_MARKET_OPEN = '06:30'
-START_TRADING = "07:16"
+START_TRADING = "07:50"
 STOP_TRADING = "12:30"
 MARKET_CLOSE = "13:00"
 

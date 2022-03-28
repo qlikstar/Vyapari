@@ -126,7 +126,7 @@ class OrderService(object):
             try:
                 order = self.api.submit_order(symbol, qty, side, type='trailing_stop',
                                               trail_price=str(trail_price), time_in_force='gtc')
-                logger.info(f"Trailing stop order submitted : {order.id}")
+                logger.info(f"{symbol}: Trailing stop order submitted : {order.id}")
                 self._save_order(order)
                 return order.id
             except APIError as api_error:
