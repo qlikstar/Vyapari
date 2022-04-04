@@ -39,10 +39,11 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    logger.info("Cancelling all schedulers...")
     scheduler_service.cancel_all()
-    logger.info("Closing DB connection...")
-    if not db.is_closed():
-        db.close()
+
+    logger.info("Closing all DB connections...")
+    db.close_all()
 
     logger.info("Closing event loop...")
     while loop.is_running():

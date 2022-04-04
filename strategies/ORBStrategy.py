@@ -180,7 +180,7 @@ class ORBStrategy(Strategy):
                         logger.info(f"Stock data : {stock}")
                         logger.info(f"{df.tail(10)}")
 
-            # If the stocks hits the profit margin,
+            # If the stock hits the profit margin or times out
             else:
                 # Get 5M DF
                 df = self.data_service.get_intra_day_bars(stock.symbol, Interval.MIN_5)

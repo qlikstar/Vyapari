@@ -139,7 +139,10 @@ class OrderService(object):
         return self.update_saved_order(order_id)
 
     def cancel_order(self, order_id: str):
-        return self.api.cancel_order(order_id)
+        try:
+            return self.api.cancel_order(order_id)
+        except APIError as api_error:
+            self.notification.err_notify(f"Order Id: {order_id} could not be cancelled: {api_error}")
 
     def close_all(self):
         if self.is_market_open():

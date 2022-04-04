@@ -16,27 +16,23 @@ logger = logging.getLogger(__name__)
 class Database(object):
 
     def __init__(self):
-        self.conn = db.connect(reuse_if_open=True)
-
-    def _open_db_conn(self):
-        try:
-            self.conn
-        except OperationalError as oex:
-            logger.error(f'Failed to connect to DB: {oex}')
-
-    # def _close_db_connection(self):
-    #     if not db.is_closed():
-    #         db.close()
+        self.db = db
 
     def wrap(self, func):
-        self._open_db_conn()
-        res = func
-        # _close_db_connection()
-        return res
+        try:
+            self.db.connect(reuse_if_open=True)
+        except OperationalError as oex:
+            logger.error(f'Failed to connect to DB: {oex}')
+            if not self.db.is_closed():
+                self.db.close()
+            self.db.connect(reuse_if_open=True)
+        finally:
+            self.db.close()
+            return func
 
     # *** Ping ***
     def ping(self):
-        return self.wrap(True)
+        return self.wrap(AccountEntity.select().limit(1))
 
     # *** Account ****
     def upsert_account(self, run_date, initial_portfolio_value: float, final_portfolio_value: float):

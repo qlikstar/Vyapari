@@ -14,6 +14,7 @@ db = PooledMySQLDatabase(
     user=os.environ.get('DB_USER'),
     password=os.environ.get('DB_PWD'),
     charset='utf8',
+    autoconnect=True
 )
 
 
