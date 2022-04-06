@@ -146,7 +146,7 @@ class ORBStrategy(Strategy):
                     stop_loss_margin = stock.range
 
                     # long
-                    if current_market_price > stock.upper_bound + (0.25 * stock.range) \
+                    if current_market_price > stock.upper_bound + (0.1 * stock.range) \
                             and ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
                             and TalibUtil.get_ha_trend(ha_df) == Trend.BULL \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
@@ -164,7 +164,7 @@ class ORBStrategy(Strategy):
 
                     # short
                     if self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound - (0.25 * stock.range) \
+                            and current_market_price < stock.lower_bound - (0.1 * stock.range) \
                             and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
                             and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
@@ -186,7 +186,7 @@ class ORBStrategy(Strategy):
                 df = self.data_service.get_intra_day_bars(stock.symbol, Interval.MIN_5)
                 df['EMA'] = talib.EMA(df['close'], timeperiod=9)
                 ha_df = TalibUtil.heikenashi(df)
-                profit_margin = 0.5 * stock.range
+                profit_margin = 0.3 * stock.range
 
                 # check timeout
                 if stock.target == Target.INIT and self._check_timeout():
@@ -201,8 +201,8 @@ class ORBStrategy(Strategy):
                         stock.target = Target.FIRST
 
                     if (stock.target == Target.FIRST or stock.target == Target.TIMEOUT) \
-                            and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR \
-                            and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA']:
+                            and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
+                            and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR:
                         logger.info(f"{stock.symbol}: Closing position ... Reached {stock.target}")
                         self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_sell(stock.symbol, stock.order_qty)

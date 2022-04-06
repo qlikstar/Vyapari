@@ -31,8 +31,7 @@ async def root():
 @app.on_event("startup")
 async def startup():
     logger.info("Connecting DB ...")
-    if db.is_closed():
-        db.connect()
+    db.connect()
 
     loop.run_in_executor(None, scheduler_service.start)
 
