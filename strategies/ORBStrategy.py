@@ -128,7 +128,7 @@ class ORBStrategy(Strategy):
         held_stocks = [x.symbol for x in self.position_service.get_all_positions()]
 
         for stock in self.todays_stock_picks:
-            logger.info(f"Checking {stock.symbol} to place an order ...")
+            logger.info(f"{stock.symbol}: Checking to place an order ...")
 
             if stock.symbol not in held_stocks:
 
@@ -143,13 +143,15 @@ class ORBStrategy(Strategy):
                     df['EMA'] = talib.EMA(df['close'], timeperiod=9)
 
                     no_of_shares = int(ORBStrategy.AMOUNT_PER_ORDER / current_market_price)
-                    stop_loss_margin = stock.range
+                    stop_loss_margin = 0.6 * stock.range
 
                     # long
-                    if current_market_price > stock.upper_bound + (0.1 * stock.range) \
-                            and ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
-                            and TalibUtil.get_ha_trend(ha_df) == Trend.BULL \
+                    if ((ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA']
+                        and TalibUtil.get_ha_trend(ha_df.iloc[-1]) == Trend.BULL)
+                        or (TalibUtil.check_strong_trend(ha_df, 4) == Trend.BULL)) \
+                        and current_market_price > stock.upper_bound + (0.15 * stock.range) \
                             and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+
                         order_id = self.order_service.place_trailing_bracket_order(
                             stock.symbol, "buy", no_of_shares, stop_loss_margin)
 
@@ -158,16 +160,17 @@ class ORBStrategy(Strategy):
                         stock.order_qty = no_of_shares
                         stock.side = 'long'
                         self.stocks_traded_today.append(stock.symbol)
-                        logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
-                        logger.info(f"Stock data : {stock}")
-                        logger.info(f"{df.tail(10)}")
+                        logger.info(f"{stock.symbol}: Placed order for {stock.side} at ${current_market_price}")
+                        logger.info(f"{stock.symbol}: Traded stock: \n{stock}")
 
                     # short
-                    if self.order_service.is_shortable(stock.symbol) \
-                            and current_market_price < stock.lower_bound - (0.1 * stock.range) \
-                            and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
-                            and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR \
-                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS:
+                    if ((ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA']
+                        and TalibUtil.get_ha_trend(ha_df.iloc[-1]) == Trend.BEAR)
+                        or (TalibUtil.check_strong_trend(ha_df, 4) == Trend.BEAR)) \
+                        and current_market_price < stock.lower_bound - (0.15 * stock.range) \
+                            and len(self.stocks_traded_today) < ORBStrategy.MAX_NUM_STOCKS \
+                            and self.order_service.is_shortable(stock.symbol):
+
                         order_id = self.order_service.place_trailing_bracket_order(
                             stock.symbol, "sell", no_of_shares, stop_loss_margin)
 
@@ -176,9 +179,8 @@ class ORBStrategy(Strategy):
                         stock.order_qty = no_of_shares
                         stock.side = 'short'
                         self.stocks_traded_today.append(stock.symbol)
-                        logger.info(f"Placed order for {stock.symbol}:{stock.side} at ${current_market_price}")
-                        logger.info(f"Stock data : {stock}")
-                        logger.info(f"{df.tail(10)}")
+                        logger.info(f"{stock.symbol}: Placed order for {stock.side} at ${current_market_price}")
+                        logger.info(f"{stock.symbol}: Traded stock: \n{stock}")
 
             # If the stock hits the profit margin or times out
             else:
@@ -202,7 +204,7 @@ class ORBStrategy(Strategy):
 
                     if (stock.target == Target.FIRST or stock.target == Target.TIMEOUT) \
                             and ha_df.iloc[-1]['close'] < df.iloc[-1]['EMA'] \
-                            and TalibUtil.get_ha_trend(ha_df) == Trend.BEAR:
+                            and TalibUtil.get_ha_trend(ha_df.iloc[-1]) == Trend.BEAR:
                         logger.info(f"{stock.symbol}: Closing position ... Reached {stock.target}")
                         self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_sell(stock.symbol, stock.order_qty)
@@ -216,7 +218,7 @@ class ORBStrategy(Strategy):
 
                     if (stock.target == Target.FIRST or stock.target == Target.TIMEOUT) \
                             and ha_df.iloc[-1]['close'] > df.iloc[-1]['EMA'] \
-                            and TalibUtil.get_ha_trend(ha_df) == Trend.BULL:
+                            and TalibUtil.get_ha_trend(ha_df.iloc[-1]) == Trend.BULL:
                         logger.info(f"{stock.symbol}: Closing position ... Reached {stock.target}")
                         self.order_service.cancel_order(stock.order_id)
                         self.order_service.market_buy(stock.symbol, stock.order_qty)
@@ -225,10 +227,13 @@ class ORBStrategy(Strategy):
     def prep_stocks(self) -> None:
         for stock_pick in self.pre_stock_picks:
 
-            logger.info(f"Prepping for ... {stock_pick.symbol}")
+            logger.info(f"{stock_pick.symbol}: prepping ...")
             one_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_1)
             five_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_5)
             fifteen_min_df = self.data_service.get_intra_day_bars(stock_pick.symbol, Interval.MIN_15)
+
+            logger.info(f"{stock_pick.symbol}: Five Min DF\n{five_min_df.tail(7)}\n")
+            logger.info(f"{stock_pick.symbol}: Fifteen Min DF\n{fifteen_min_df.tail(3)}\n")
 
             opening_range = self._populate_opening_range(stock_pick.symbol, one_min_df, five_min_df, fifteen_min_df)
             if len(opening_range) == 2:
@@ -293,7 +298,7 @@ class ORBStrategy(Strategy):
                     # else:
                     #     stock_info.append(ORBStock(stock, atr_to_price, 'short'))
             except Exception as ex:
-                logger.warning(f"Could not process {stock}: {ex}")
+                logger.warning(f"{stock}: Could not process data: {ex}")
 
         pre_stock_picks = sorted(stock_info, key=lambda i: i.atr_to_price, reverse=True)
         return pre_stock_picks[:ORBStrategy.MAX_STOCK_WATCH_COUNT]
@@ -305,7 +310,7 @@ class ORBStrategy(Strategy):
         df_path.parent.mkdir(parents=True, exist_ok=True)
 
         if df_path.exists():
-            logger.info(f'data for {symbol} exists locally')
+            logger.info(f'{symbol}: data exists locally!')
             df = pandas.read_pickle(df_path)
         else:
             df = self.data_service.get_daily_bars(symbol, limit=ORBStrategy.BARSET_COUNT)
@@ -355,7 +360,7 @@ class ORBStrategy(Strategy):
 
         if len(highs) >= 2 and len(lows) >= 2:
             return [min(lows), max(highs)]
-        logger.warning(f"Record count of 5 and 1 min bars is lesser than threshold for : {symbol}")
+        logger.warning(f"{symbol}: Record count of 5 and 1 min bars is lesser than threshold")
         return []
 
     def _check_timeout(self) -> bool:

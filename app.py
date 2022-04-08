@@ -42,7 +42,7 @@ async def shutdown():
     scheduler_service.cancel_all()
 
     logger.info("Closing all DB connections...")
-    db.close_all()
+    db.close()
 
     logger.info("Closing event loop...")
     while loop.is_running():

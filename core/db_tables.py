@@ -1,13 +1,12 @@
 import os
 from peewee import *
-from playhouse.pool import PooledMySQLDatabase
 
 from services.util import load_env_variables
 
 # https://github.com/spaceshipearth/pyspaceship/pull/51/files
 
 load_env_variables()
-db = PooledMySQLDatabase(
+db = MySQLDatabase(
     os.environ.get('DB_NAME'),
     host=os.environ.get('DB_HOST'),
     port=int(os.environ.get('DB_PORT')),

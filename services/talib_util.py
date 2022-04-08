@@ -1,6 +1,9 @@
+import logging
 from enum import Enum
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 class Trend(Enum):
@@ -34,12 +37,22 @@ class TalibUtil:
         return heikinashi_df
 
     @classmethod
-    def get_ha_trend(cls, ha_df) -> Trend:
-        latest_row = ha_df.iloc[-1]
+    def get_ha_trend(cls, latest_row) -> Trend:
 
-        if latest_row['open'] == latest_row['low'] and latest_row['close'] > latest_row['open']:
+        if latest_row['open'] == latest_row['low'] and latest_row['high'] > latest_row['close']:
             return Trend.BULL
-        elif latest_row['open'] == latest_row['high'] and latest_row['close'] < latest_row['open']:
+        elif latest_row['open'] == latest_row['high'] and latest_row['low'] < latest_row['close']:
             return Trend.BEAR
+        else:
+            return Trend.INDECISIVE
+
+    @classmethod
+    def check_strong_trend(cls, ha_df, count_of_rows: int) -> Trend:
+        result = []
+        for i in range(count_of_rows):
+            result.append(cls.get_ha_trend(ha_df.iloc[-i]))
+
+        if len(set(result)) == 1:
+            return result[0]
         else:
             return Trend.INDECISIVE
