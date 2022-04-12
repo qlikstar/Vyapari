@@ -7,7 +7,6 @@ from fastapi.responses import HTMLResponse
 from kink import di
 
 from app import templates
-from core.db_tables import AccountEntity, OrderEntity
 from services.account_service import AccountService
 from services.order_service import OrderService
 from services.position_service import PositionService, Position
@@ -60,6 +59,20 @@ def current_positions() -> []:
     return curr_positions
 
 
+def calculate_profit(records):
+    profit = 0
+    invested_amt = records[0]["filled_qty"] * records[0]["filled_price"]
+    for record in records:
+        if record["side"] == "buy":
+            profit = profit - (record["filled_qty"] * record["filled_price"])
+        else:
+            profit = profit + (record["filled_qty"] * record["filled_price"])
+
+    if abs(profit) / abs(invested_amt) < 0.5:
+        return round(profit, 2)
+    return 0
+
+
 def stocks_closed() -> []:
     result = []
     prev_sym = None
@@ -87,12 +100,17 @@ def stocks_closed() -> []:
                 "filled_price": order.filled_avg_price,
                 "filled_at": order.filled_at
             })
-            result.pop()
-        result.append({
-            "symbol": order.symbol,
-            "color": choice(colors),
-            "records": records
-        })
+            # result.pop()
+
+        profit = calculate_profit(records)
+        if profit != 0:
+            result.append({
+                "symbol": order.symbol,
+                "color": choice(colors),
+                "records": records,
+                "pl_color": "green" if profit > 0 else "red",
+                "profit": profit
+            })
         prev_sym = order.symbol
     return result
 
@@ -113,10 +131,11 @@ def _get_order_type_color(order_type: str) -> str:
 @route.get("/index", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html",
-                                      {"request": request,
-                                       "data": {
-                                           "current_positions": current_positions(),
-                                           "history": get_history(),
-                                           "closed_positions": stocks_closed()
-                                       }
-                                       })
+                                      {
+                                          "request": request,
+                                          "data": {
+                                              "current_positions": current_positions(),
+                                              "history": get_history(),
+                                              "closed_positions": stocks_closed()
+                                          }
+                                      })

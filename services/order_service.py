@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from random import randint
 from typing import List
 
@@ -186,7 +186,10 @@ class OrderService(object):
         return list(self.db.get_all_orders(for_date))
 
     def get_all_filled_orders_today(self) -> List[OrderEntity]:
-        return list(self.db.get_all_filled_orders_today())
+        day_number = date.today().isoweekday()
+        if day_number > 5:
+            return list(self.db.get_all_filled_orders_for_date(date.today() - timedelta(days=day_number-5)))
+        return list(self.db.get_all_filled_orders_for_date(date.today()))
 
     def update_all_open_orders(self) -> List[Order]:
         logger.info("Updating all open orders ...")

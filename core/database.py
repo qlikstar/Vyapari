@@ -124,8 +124,7 @@ class Database(object):
                                 OrderEntity.updated_at.year == for_date.year)
                          .order_by(OrderEntity.symbol.asc(), OrderEntity.created_at.asc()))
 
-    def get_all_filled_orders_today(self) -> List[OrderEntity]:
-        for_date = date.today()
+    def get_all_filled_orders_for_date(self, for_date=date.today()) -> List[OrderEntity]:
         return self.wrap(lambda: OrderEntity
                          .select()
                          .where(OrderEntity.filled_at.day == for_date.day,

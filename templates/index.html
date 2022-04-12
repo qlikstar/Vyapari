@@ -59,7 +59,11 @@
                 <tbody>
                 {% for hist in data['history'] %}
                     <tr>
-                        <td>{{hist.date}}</td>
+                        <td>
+                            <button class="ui right labeled icon button">
+                                <i class="right arrow icon"></i>{{hist.date}}
+                            </button>
+                        </td>
                         <td>{{hist.initial}}</td>
                         <td>{{hist.final}}</td>
                         <td><a class="ui {{hist.pl_color}} label">{{hist.gain}}</a></td>
@@ -112,7 +116,7 @@
                       {
                       "width": "100%",
                       "height": 500,
-                      "symbol": "{{ position.exchange }}:{{ position.symbol }}",
+                      "symbol": "{{position.symbol}}",
                       "interval": "5",
                       "timezone": "America/Los_Angeles",
                       "theme": "light",
@@ -169,6 +173,7 @@
                     {% endfor %}
                   </tbody>
                 </table>
+                <div class="ui {{position.pl_color}} large message">Profit / Loss ($): {{position.profit}}</div>
                 <div>
                     <!-- TradingView Widget BEGIN -->
                     <div class="tradingview-widget-container">
@@ -199,8 +204,8 @@
                     </script>
                     <!-- TradingView Widget END -->
                     </div>
-
                 </div>
+
             </div>
         {% endfor %}
         </div>
