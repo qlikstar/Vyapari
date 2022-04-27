@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 import pandas
 import talib
@@ -96,7 +96,7 @@ class ORBStrategy(Strategy):
 
         self.pre_stock_picks: List[SelectedStock] = []
         self.todays_stock_picks: List[SelectedStock] = []
-        self.stocks_traded_today: List[str] = []
+        self.stocks_traded_today: Set[str] = []
 
     def get_algo_name(self) -> str:
         return type(self).__name__
@@ -159,7 +159,7 @@ class ORBStrategy(Strategy):
                         stock.order_price = current_market_price
                         stock.order_qty = no_of_shares
                         stock.side = 'long'
-                        self.stocks_traded_today.append(stock.symbol)
+                        self.stocks_traded_today.add(stock.symbol)
                         logger.info(f"{stock.symbol}: Placed order for {stock.side} at ${current_market_price}")
                         logger.info(f"{stock.symbol}: Traded stock: \n{stock}")
 
@@ -178,7 +178,7 @@ class ORBStrategy(Strategy):
                         stock.order_price = current_market_price
                         stock.order_qty = no_of_shares
                         stock.side = 'short'
-                        self.stocks_traded_today.append(stock.symbol)
+                        self.stocks_traded_today.add(stock.symbol)
                         logger.info(f"{stock.symbol}: Placed order for {stock.side} at ${current_market_price}")
                         logger.info(f"{stock.symbol}: Traded stock: \n{stock}")
 
@@ -186,7 +186,7 @@ class ORBStrategy(Strategy):
             else:
                 # Get 5M DF
                 df = self.data_service.get_intra_day_bars(stock.symbol, Interval.MIN_5)
-                df['EMA'] = talib.EMA(df['close'], timeperiod=9)
+                df['EMA'] = talib.EMA(df['close'], timeperiod=15)
                 ha_df = TalibUtil.heikenashi(df)
                 profit_margin = 0.3 * stock.range
 
