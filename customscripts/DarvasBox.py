@@ -5,7 +5,7 @@ from kink import di
 
 from services.broker_service import Timeframe, Broker
 from services.util import load_env_variables
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 
 class DarvasBox(object):

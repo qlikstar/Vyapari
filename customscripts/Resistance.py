@@ -9,7 +9,7 @@ from mplfinance.original_flavor import candlestick_ohlc
 from services.broker_service import Broker
 from services.data_service import Timeframe
 from services.util import load_env_variables
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 """
     Resistance and Support calculation:
