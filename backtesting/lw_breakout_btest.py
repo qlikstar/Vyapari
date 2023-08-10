@@ -5,7 +5,7 @@ from schedules.watchlist import WatchList
 from services.broker_service import AlpacaClient, Timeframe
 from services.notification_service import NoOpNotification
 from services.util import load_env_variables
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 
 class LWBreakout(object):

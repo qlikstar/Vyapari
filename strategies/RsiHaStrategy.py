@@ -15,7 +15,7 @@ from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.talib_util import TalibUtil
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 '''
 References:

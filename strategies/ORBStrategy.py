@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Set
 
 import pandas
-import talib
+from finta import TA as talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
@@ -16,7 +16,7 @@ from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
 from services.talib_util import TalibUtil, Trend
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 '''
 References:

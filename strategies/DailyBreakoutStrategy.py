@@ -15,7 +15,7 @@ from scheduled_jobs.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
-from strategies.strategy import Strategy
+from strategies.BaseStrategy import Strategy
 
 '''
 References:
