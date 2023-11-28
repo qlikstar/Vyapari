@@ -15,38 +15,31 @@ logger = logging.getLogger(__name__)
 
 @inject
 class WatchList(object):
-    nasdaq = "https://api.nasdaq.com/api/screener/stocks?tableonly=true"
-    no_of_stocks = 4000
-    stocks_type = ["mega", "large", "mid"]
-    recommendation_type = ["strong_buy", "buy", "sell", "strong_sell"]
 
     def __init__(self):
-        self.NASDAQ_API_URL = "&".join([WatchList.nasdaq, "=".join(["limit", str(WatchList.no_of_stocks)]),
-                                        "=".join(["marketcap", "|".join(WatchList.stocks_type)]),
-                                        "=".join(["recommendation", "|".join(WatchList.recommendation_type)])
-                                        ])
         self.data_service: DataService = di[DataService]
 
-    def get_universe(self, volume_gt, beta_gt, price_gt=20, price_lt=1000, limit=5000) -> List[str]:
-
-        # for stock_type in self.stock_types:
-        # logger.info("Fetching the best {} {} recommended {} stocks from NASDAQ"
-        #             .format(self.no_of_stocks, self.recommendation_type, self.stocks_type))
-        # data = self._get_nasdaq_buy_stocks()
-        # nasdaq_records = data['data']['table']['rows']
-        # all_stocks = [rec['symbol'].strip().upper() for rec in nasdaq_records]
-        # logger.info(f"All Stocks: {all_stocks}")
+    def get_universe(self, volume_gt: int, beta_gt: float, price_gt=20, price_lt=1000, limit=5000) -> List[str]:
 
         all_stocks_df = self.data_service.screen_stocks(volume_gt=volume_gt, price_gt=price_gt, price_lt=price_lt,
                                                         beta_gt=beta_gt, limit=limit)
         all_stocks = list(all_stocks_df['symbol'])
         all_stocks.extend(get_high_vol_etfs())
+        all_stocks.extend(get_high_vol_stocks())
         print(f"All stocks: {all_stocks}")
         return list(set(all_stocks))
 
-    def _get_nasdaq_buy_stocks(self):
+    def get_nasdaq_buy_stocks(self):
+        no_of_stocks = 4000
+        stocks_type = ["mega", "large", "mid"]
+        recommendation_type = ["strong_buy", "buy"] #, "sell", "strong_sell"
+        nasdaq_url = "https://api.nasdaq.com/api/screener/stocks?tableonly=true"
+        nasdaq_api_url = "&".join([nasdaq_url, "=".join(["limit", str(no_of_stocks)]),
+                                   "=".join(["marketcap", "|".join(stocks_type)]),
+                                   "=".join(["recommendation", "|".join(recommendation_type)])
+                                   ])
         # api used by https://www.nasdaq.com/market-activity/stocks/screener
-        parsed_uri = urlparse(self.NASDAQ_API_URL)
+        parsed_uri = urlparse(nasdaq_api_url)
         # stagger requests to avoid connection issues to nasdaq.com
         time.sleep(randint(1, 3))
         headers = {
@@ -68,15 +61,37 @@ class WatchList(object):
                           '(KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'
         }
         try:
-            return requests.get(self.NASDAQ_API_URL, headers=headers).json()
+            return requests.get(nasdaq_api_url, headers=headers).json()
         except (ConnectTimeout, HTTPError, ReadTimeout, Timeout, ConnectionError) as e:
             # TODO: colorama
             print('NASDAQ CONNECTION ERROR: {}'.format(e))
             time.sleep(randint(2, 5))
-            self._get_nasdaq_buy_stocks()
+            self.get_nasdaq_buy_stocks()
 
 
-def get_high_vol_etfs() -> List[str]:
-    return ['SQQQ', 'SPY', 'XLF', 'QQQ', 'TQQQ', 'UVXY', 'VXX', 'EEM', 'IWM', 'XLE', 'FXI', 'EWZ', 'HYG', 'EFA',
-            'SLV', 'SDS', 'SOXS', 'GDX', 'TLT', 'KWEB', 'SOXL', 'LQD', 'SPXU', 'TZA', 'IEMG', 'XLU', 'VWO', 'XLV',
-            'XLP', 'VEA', 'KOLD', 'XLI', 'XLK', 'IAU', 'TNA', 'QID', 'JETS', 'IEF']
+def get_high_vol_etfs() -> list[str]:
+    return list(
+        {'ARKF', 'ARKG', 'ARKK', 'ARKW', 'EEM', 'EFA', 'EWZ', 'FXI', 'GDX', 'HYG', 'IAU', 'ICLN', 'IDRV', 'IEF', 'IEMG',
+         'IPO', 'IWM', 'JETS', 'KOLD', 'KWEB', 'LIT', 'LQD', 'MSOS', 'PBD', 'PBW', 'QID', 'QQQ', 'SCHA', 'SDS', 'SLV',
+         'SMOG', 'SOXL', 'SOXS', 'SPXU', 'SPY', 'SQQQ', 'TAN', 'TLT', 'TNA', 'TQQQ', 'TZA', 'UVXY', 'VEA', 'VOO', 'VTI',
+         'VUG', 'VWO', 'VXX', 'XLE', 'XLF', 'XLI', 'XLK', 'XLP', 'XLU', 'XLV'})
+
+
+def get_high_vol_stocks() -> list[str]:
+    return list(
+        {'AAL', 'AAPL', 'ADB', 'AMD', 'AMZN', 'ANET', 'BABA', 'CHPT', 'CMG', 'COST', 'CVS', 'DBX', 'DIS', 'EDIT',
+         'FTEC', 'FTNT', 'GOOG', 'INTC', 'JD', 'LMT', 'M', 'MA', 'MDB', 'META', 'MSFT', 'NDAQ', 'NICE', 'NIO', 'NOA',
+         'NOW', 'NVDA', 'NVTA', 'OKTA', 'PANW', 'PAYC', 'PYPL', 'QCOM', 'SEDG', 'SHOP', 'SQ', 'T', 'TCEHY', 'TEAM',
+         'TSLA', 'TSM', 'TTWO', 'TWLO', 'V', 'VO', 'WDAY', 'WIX', 'WMT', 'ZM'
+
+
+         # https://www.barchart.com/stocks/top-100-stocks?orderBy=weightedAlpha&orderDir=desc
+         # 'DAKT', 'IZM', 'ACIC', 'CBAY', 'CABA', 'TAST', 'HRTG', 'LMB',
+         # 'MPTI', 'CSPI', 'ANF', 'MYO', 'SHOT', 'IMMX', 'EDU', 'LUXH', 'APP', 'GNE', 'ELTK', 'CAMT', 'SYM', 'OLMA',
+         # 'BWAY', 'CWCO', 'META', 'VRT', 'MAMA', 'SMCI', 'NVDA', 'TALK', 'LPG', 'GDHG', 'SKYW', 'PLSE', 'GASS', 'YHGJ',
+         # 'DUOL', 'INTR', 'MLTX', 'HCI', 'MSTR', 'NGL', 'LWAY', 'XPO', 'FTAI', 'CLS', 'DKNG', 'QUIK', 'ZJYL', 'MOD',
+         # 'GEOS', 'POWL', 'USAP', 'MHO', 'MNSO', 'FOR', 'SLNO', 'MDB', 'TRML', 'DFH', 'PLTR', 'IRON', 'COCO', 'VIST',
+         # 'BWMX', 'NPCE', 'FG', 'RXST', 'AUGX', 'ESCA', 'CMPR', 'SPOT', 'IOT', 'IESC', 'UGP', 'BRZE', 'BRBR', 'KTOS',
+         # 'SVRA', 'RELY', 'WFRD', 'FRGE', 'CVNA', 'ROVR', 'AFRM', 'TAL', 'LI', 'UEC', 'LFMD', 'ALKT', 'ACMR', 'CASI',
+         # 'BLDR', 'FSTR', 'VRNS', 'SPLK', 'AMRX', 'UBER', 'CCJ', 'NATR'
+         })

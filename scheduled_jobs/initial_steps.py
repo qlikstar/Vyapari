@@ -17,7 +17,9 @@ class InitialSteps(object):
 
     def show_portfolio_details(self):
         portfolio = self.account_service.get_account_details()
-        self.notification.notify(f"Initial portfolio value: ${float(portfolio.portfolio_value)}")
+        message = f"Initial portfolio value: ${float(portfolio.portfolio_value)}"
+        logger.info(message)
+        self.notification.notify(message)
 
     @staticmethod
     def show_configuration():

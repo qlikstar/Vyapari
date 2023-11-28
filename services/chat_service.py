@@ -1,3 +1,4 @@
+import asyncio
 import decimal
 from collections import defaultdict
 from datetime import date
@@ -7,7 +8,7 @@ from dataclasses import dataclass
 from typing import List, Dict
 
 import telegram
-from alpaca_trade_api.entity import Account
+from alpaca.trading import TradeAccount
 from fastapi import Request
 from kink import di, inject
 
@@ -43,7 +44,12 @@ class TelegramService(ChatService):
         self.uri = uri
         self.telegram: Telegram = di[Telegram]
         self.command_response: CommandResponse = di[CommandResponse]
-        self.telegram.bot.set_webhook(f'{self.telegram.url}/{self.uri}')
+
+        # Schedule the set_webhook coroutine to run asynchronously
+        asyncio.get_event_loop().create_task(self.set_webhook())
+
+    async def set_webhook(self):
+        await self.telegram.bot.set_webhook(f'{self.telegram.url}/{self.uri}')
 
     async def respond(self, request: Request) -> None:
         req_info = await request.json()
@@ -62,7 +68,7 @@ class TelegramService(ChatService):
         response = self.command_response.get_command(command)
         # now just send the message back
         # notice how we specify the chat and the msg we reply to
-        await self.telegram.send_message(chat_id=chat_id, response=response, reply_to_message_id=msg_id)
+        await self.telegram.send_message(chat_id=str(chat_id), response=response, reply_to_message_id=str(msg_id))
 
 
 @inject
@@ -152,7 +158,7 @@ class CommandResponse(object):
         return resp.replace('$-', '-$')
 
     def balance(self) -> str:
-        acc_details: Account = self.account_service.get_account_details()
+        acc_details: TradeAccount = self.account_service.get_account_details()
         actual_remaining_balance: float = float(acc_details.buying_power) / int(acc_details.multiplier)
         portfolio_value: float = float(acc_details.portfolio_value)
         invested_amount: float = portfolio_value - actual_remaining_balance
