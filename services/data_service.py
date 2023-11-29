@@ -21,7 +21,10 @@ class DataService(object):
     def get_current_price(self, symbol) -> float:
         return self.api.get_quote_short(symbol).iloc[-1]['price']
 
-    def get_daily_bars(self, symbol: str, limit: int):
+    '''
+    Returns dataframe in ascending order
+    '''
+    def get_daily_bars(self, symbol: str, limit: int) -> DataFrame:
         bars = self.api.get_historical_price(symbol, limit)[::-1]
         bars.set_index('date', inplace=True)
         return bars
@@ -31,6 +34,12 @@ class DataService(object):
         bars.set_index('date', inplace=True)
         return bars
 
+    '''
+    Dataframe response:
+      symbol      1D       5D  ...          5Y          10Y           max
+    0   AAPL -0.7004  0.04213  ...   335.21191    915.88235  147909.34944
+    1   NVDA -1.9295 -3.11486  ...  1148.71929  12213.40206  116381.37312
+    '''
     def stock_price_change(self, symbols: list[str]) -> DataFrame:
         dfs = [self.api.stock_price_change(sym) for sym in symbols]
         return concat(dfs, ignore_index=True)

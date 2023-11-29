@@ -54,12 +54,10 @@ class MomentumStrategy(Strategy):
     def init_data(self) -> None:
         self.stock_picks_today: DataFrame = self.prep_stocks()
         print(self.stock_picks_today)
-        self._run_trading()
 
-    ''' Since this is a strict LONG TERM strategy, it does not need run on a smaller timeframe'''
-
-    # def run(self, sleep_next_x_seconds, until_time):
-    #     self.schedule.run_adhoc(self._run_trading, 86400, until_time, FrequencyTag.DAILY)
+    ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
+    def run(self, sleep_next_x_seconds, until_time):
+        self.schedule.run_adhoc(self._run_trading, 24*60*60, until_time, FrequencyTag.DAILY)
 
     def prep_stocks(self) -> DataFrame:
         logger.info("Downloading data ...")
