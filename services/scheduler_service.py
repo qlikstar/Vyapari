@@ -55,7 +55,7 @@ class SchedulerService:
 
         daily_jobs = [
             (BEFORE_MARKET_OPEN, self.app_config.initialize),
-            # (START_TRADING, self.app_config.run_strategy, 60, STOP_TRADING),
+            (START_TRADING, self.app_config.run_strategy, 60, STOP_TRADING),
             (at_time, self.app_config.show_current_holdings, 600, MARKET_CLOSE),
             # (STOP_TRADING, self.app_config.run_before_market_close),
             (MARKET_CLOSE, self.app_config.run_after_market_close),

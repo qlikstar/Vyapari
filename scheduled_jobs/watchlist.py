@@ -79,7 +79,7 @@ def get_high_vol_etfs() -> list[str]:
 
 def get_high_vol_stocks() -> list[str]:
     return list(
-        {'AAL', 'AAPL', 'ADB', 'AMD', 'AMZN', 'ANET', 'BABA', 'CHPT', 'CMG', 'COST', 'CVS', 'DBX', 'DIS', 'EDIT',
+        {'AAL', 'AAPL', 'AMD', 'AMZN', 'ANET', 'BABA', 'CHPT', 'CMG', 'COST', 'CVS', 'DBX', 'DIS', 'EDIT',
          'FTEC', 'FTNT', 'GOOG', 'INTC', 'JD', 'LMT', 'M', 'MA', 'MDB', 'META', 'MSFT', 'NDAQ', 'NICE', 'NIO', 'NOA',
          'NOW', 'NVDA', 'NVTA', 'OKTA', 'PANW', 'PAYC', 'PYPL', 'QCOM', 'SEDG', 'SHOP', 'SQ', 'T', 'TCEHY', 'TEAM',
          'TSLA', 'TSM', 'TTWO', 'TWLO', 'V', 'VO', 'WDAY', 'WIX', 'WMT', 'ZM'
