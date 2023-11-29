@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List
 
-import alpaca_trade_api as alpaca_api
-from alpaca_trade_api.entity import Account
+from alpaca.trading import TradeAccount
+from alpaca.trading.client import TradingClient
 from kink import di, inject
 
+from core.broker import AlpacaBroker
 from core.database import Database
 from core.db_tables import AccountEntity
 
@@ -13,11 +14,11 @@ from core.db_tables import AccountEntity
 class AccountService(object):
 
     def __init__(self):
-        self.api = alpaca_api.REST()
+        self.api: TradingClient = di[AlpacaBroker].get_instance()
         self.db: Database = di[Database]
 
-    def get_account_details(self) -> Account:
-        account: Account = self.api.get_account()
+    def get_account_details(self) -> TradeAccount:
+        account: TradeAccount = self.api.get_account()
         self.db.upsert_account(datetime.date(datetime.today()),
                                float(account.portfolio_value), float(account.portfolio_value))
         return account

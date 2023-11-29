@@ -28,16 +28,13 @@ async def root():
     return {"message": "Running Vyapari! ..."}
 
 
-@app.on_event("startup")
-async def startup():
+async def startup_event():
     logger.info("Connecting DB ...")
     db.connect()
-
     loop.run_in_executor(None, scheduler_service.start)
 
 
-@app.on_event("shutdown")
-async def shutdown():
+async def shutdown_event():
     logger.info("Cancelling all schedulers...")
     scheduler_service.cancel_all()
 
@@ -59,7 +56,11 @@ app.include_router(position_router.route)
 app.include_router(scheduler_router.route)
 app.include_router(callback_router.route)
 app.include_router(order_router.route)
-app.include_router(ui_router.route)
+# app.include_router(ui_router.route)
+
+app.add_event_handler("startup", startup_event)
+app.add_event_handler("shutdown", shutdown_event)
+
 
 if __name__ == "__main__":
-    uvicorn.run(host="0.0.0.0", port=8000)
+    uvicorn.run(app=app, host="0.0.0.0", port=8000)

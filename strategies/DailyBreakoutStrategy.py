@@ -4,9 +4,11 @@ from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import List
+from uuid import UUID
 
 import pandas
-import talib
+from alpaca.trading import OrderSide
+from finta import TA as talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
@@ -74,7 +76,7 @@ class DailyBreakoutStrategy(Strategy):
     MAX_STOCK_WATCH_COUNT = 100
 
     def __init__(self):
-        self.name = "OpeningRangeBreakoutStrategy"
+        self.name = "DailyBreakoutStrategy"
         self.watchlist = WatchList()
         self.order_service: OrderService = di[OrderService]
         self.position_service: PositionService = di[PositionService]
@@ -128,8 +130,8 @@ class DailyBreakoutStrategy(Strategy):
                             and len(self.stocks_traded_today) < DailyBreakoutStrategy.MAX_NUM_STOCKS:
 
                         no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
-                        order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
+                        order_id = self.order_service.place_trailing_bracket_order(stock.symbol, OrderSide.BUY,
+                                                                                   no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -145,8 +147,8 @@ class DailyBreakoutStrategy(Strategy):
                             and len(self.stocks_traded_today) < DailyBreakoutStrategy.MAX_NUM_STOCKS:
 
                         no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
-                        order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
+                        order_id = self.order_service.place_trailing_bracket_order(stock.symbol, OrderSide.SELL,
+                                                                                   no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -168,7 +170,7 @@ class DailyBreakoutStrategy(Strategy):
 
                         no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
                         order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "sell", no_of_shares, 2 * stock.running_atr)
+                            .place_trailing_bracket_order(stock.symbol, OrderSide.SELL, no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -181,8 +183,8 @@ class DailyBreakoutStrategy(Strategy):
                     if stock.side == 'short' and current_market_price > stock.upper_bound - (1 * stock.running_atr):
 
                         no_of_shares = int(DailyBreakoutStrategy.AMOUNT_PER_ORDER / current_market_price)
-                        order_id = self.order_service \
-                            .place_trailing_bracket_order(stock.symbol, "buy", no_of_shares, 2 * stock.running_atr)
+                        order_id = self.order_service.place_trailing_bracket_order(stock.symbol, OrderSide.BUY,
+                                                                                   no_of_shares, 2 * stock.running_atr)
 
                         stock.order_id = order_id
                         stock.order_price = current_market_price
@@ -204,7 +206,7 @@ class DailyBreakoutStrategy(Strategy):
                     if stock.target == Target.FIRST and \
                             current_market_price > stock.order_price + (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
-                        self.order_service.cancel_order(stock.order_id)
+                        self.order_service.cancel_order(str(stock.order_id))
                         self.order_service.market_sell(stock.symbol, stock.order_qty)
                         stock.target = Target.FINAL
 
@@ -218,7 +220,7 @@ class DailyBreakoutStrategy(Strategy):
                     if stock.target == Target.FIRST and \
                             current_market_price < stock.order_price - (4 * stock.running_atr):
                         logger.info(f"{stock.symbol}: Reached FINAL {stock.side} target: ${current_market_price}")
-                        self.order_service.cancel_order(stock.order_id)
+                        self.order_service.cancel_order(str(stock.order_id))
                         self.order_service.market_buy(stock.symbol, stock.order_qty)
                         stock.target = Target.FINAL
 
@@ -245,7 +247,7 @@ class DailyBreakoutStrategy(Strategy):
         # get the best buy and strong buy stock from Nasdaq.com and sort them by the best stocks
 
         logger.info("Downloading data ...")
-        from_watchlist = self.watchlist.get_universe()
+        from_watchlist: List[str] = self.watchlist.get_universe(2000000, 1.0)
         stock_info: List[BreakoutStock] = []
 
         for count, stock in enumerate(from_watchlist):
@@ -264,9 +266,9 @@ class DailyBreakoutStrategy(Strategy):
                 continue
 
             try:
-                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
-                df['ATR-slope-fast'] = talib.EMA(df['ATR'], timeperiod=9)
-                df['ATR-slope-slow'] = talib.EMA(df['ATR'], timeperiod=14)
+                df['ATR'] = talib(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ATR-slope-fast'] = talib.EMA(df['ATR'], period=9)
+                df['ATR-slope-slow'] = talib.EMA(df['ATR'], period=14)
                 increasing_atr = df.iloc[-1]['ATR-slope-fast'] > df.iloc[-1]['ATR-slope-slow'] \
                                  and df.iloc[-5]['ATR-slope-fast'] > df.iloc[-5]['ATR-slope-slow']
                 atr_to_price = round((df.iloc[-1]['ATR'] / stock_price) * 100, 3)
@@ -310,7 +312,7 @@ class DailyBreakoutStrategy(Strategy):
             df.to_pickle(df_path)
         return df
 
-    def place_smart_stop_loss(self, stock: BreakoutStock) -> str:
+    def place_smart_stop_loss(self, stock: BreakoutStock) -> UUID:
         self.order_service.cancel_order(stock.order_id)
         qty_to_close: int = int(abs(stock.order_qty / 2))
 
@@ -356,5 +358,5 @@ class DailyBreakoutStrategy(Strategy):
     @staticmethod
     def _get_running_atr(five_min_df) -> float:
         df = five_min_df.tail(50)
-        df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=30)
+        df['ATR'] = talib.ATR(df, period=30)
         return round(df.iloc[-1]['ATR'], 2)

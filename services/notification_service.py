@@ -39,6 +39,7 @@ class TelegramNotification(Notification):
         self.pushover: Pushover = di[Pushover]
 
     def notify(self, message):
+        logger.info(f"Telegram message sent: {message}")
         asyncio.run(self.telegram.send_message(chat_id=self.chat_id, response=message))
 
     def err_notify(self, message):

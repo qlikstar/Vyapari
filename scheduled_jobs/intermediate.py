@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from alpaca_trade_api.entity import Order
+from alpaca.trading import Order
 from colorama import Fore, Style
 from kink import di, inject
 

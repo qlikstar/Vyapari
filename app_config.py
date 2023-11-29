@@ -1,8 +1,10 @@
-import logging
 import importlib
+import logging
 
+import schedule
 from kink import inject, di
 
+from core.broker import AlpacaBroker
 from core.database import Database
 from scheduled_jobs.cleanup import CleanUp
 from scheduled_jobs.final_steps import FinalSteps
@@ -12,6 +14,7 @@ from services.order_service import OrderService
 from services.util import load_app_variables
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @inject
@@ -23,6 +26,7 @@ class AppConfig(object):
         self.strategy = strategy_class()
 
         self.database: Database = di[Database]
+        self.client: AlpacaBroker = di[AlpacaBroker]
         self.order_service: OrderService = di[OrderService]
         self.initial_steps: InitialSteps = di[InitialSteps]
         self.intermediate: Intermediate = di[Intermediate]
@@ -40,9 +44,10 @@ class AppConfig(object):
         else:
             logger.info("Market is closed today!")
 
-    def initialize_and_run(self, sleep_next_x_seconds, until_time):
+    def initialize_and_run_once(self, sleep_next_x_seconds, until_time):
         self.initialize()
         self.run_strategy(sleep_next_x_seconds, until_time)
+        return schedule.CancelJob  # Runs once and kills itself
 
     def show_current_holdings(self, sleep_next_x_seconds, until_time):
         if self.order_service.is_market_open():

@@ -10,11 +10,12 @@ import talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
-from core.schedule import SafeScheduler, FrequencyTag
+from core.schedule import SafeScheduler
 from scheduled_jobs.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
+from services.scheduler_service import FrequencyTag
 from services.talib_util import TalibUtil, Trend
 from strategies.strategy import Strategy
 

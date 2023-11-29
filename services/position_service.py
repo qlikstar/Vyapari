@@ -31,8 +31,8 @@ class PositionService(object):
     def update_current_positions(self):
         positions = self.broker.get_positions()
         for pos in positions:
-            self.db.upsert_position(datetime.date(datetime.today()), pos.symbol, pos.side, pos.qty,
-                                    pos.avg_entry_price, pos.current_price, pos.lastday_price)
+            self.db.upsert_position(datetime.date(datetime.today()), pos.symbol, pos.side, int(pos.qty),
+                                    float(pos.avg_entry_price), float(pos.current_price), float(pos.lastday_price))
 
     def update_and_get_current_positions(self):
         self.update_current_positions()
@@ -41,7 +41,7 @@ class PositionService(object):
     def get_position(self, symbol: str):
         return self.db.get_position(symbol)
 
-    def get_all_positions(self):
+    def get_all_positions(self) -> List[Position]:
         return self.broker.get_positions()
 
     # TODO: merge this method with get_all_positions()

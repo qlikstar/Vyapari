@@ -2,7 +2,7 @@
 common:
   dry_run: True
 
-strategy: ORBStrategy
+strategy: MomentumStrategy
 
 # Config for ORBStrategy
 ORBStrategy:
