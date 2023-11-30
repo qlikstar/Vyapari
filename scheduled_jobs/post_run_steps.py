@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 @inject
-class FinalSteps(object):
+class PostRunSteps(object):
 
     def __init__(self):
         self.account_service: AccountService = di[AccountService]

@@ -74,7 +74,7 @@ class OrderService(object):
 
             try:
                 order: Order = self.api.submit_order(order_data)
-                logger.info(f"Market order to {side}: {qty} shares of {symbol} placed")
+                self.notification.notify(f"Market order to {side}: {qty} shares of {symbol} placed")
                 self._save_order(order)
                 return order.id
             except APIError as api_error:

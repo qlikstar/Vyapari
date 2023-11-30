@@ -15,7 +15,6 @@ from scheduled_jobs.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
-from services.scheduler_service import FrequencyTag
 from services.talib_util import TalibUtil, Trend
 from strategies.strategy import Strategy
 
@@ -118,7 +117,7 @@ class ORBStrategy(Strategy):
     def run(self, sleep_next_x_seconds, until_time):
         self.order_service.close_all()
         self.prep_stocks()
-        self.schedule.run_adhoc(self._run_singular, 300, until_time, FrequencyTag.FIVE_MINUTELY)
+        self.schedule.run_adhoc(self._run_singular, 300, until_time, JobRunType.STANDARD)
 
     def _run_singular(self):
         if not self.order_service.is_market_open():

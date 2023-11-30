@@ -6,7 +6,7 @@ from kink import di
 from pandas import DataFrame
 from scipy import stats
 
-from core.schedule import SafeScheduler, FrequencyTag
+from core.schedule import SafeScheduler, JobRunType
 from scheduled_jobs.watchlist import WatchList
 from services.account_service import AccountService
 from services.data_service import DataService
@@ -54,10 +54,11 @@ class MomentumStrategy(Strategy):
     def init_data(self) -> None:
         self.stock_picks_today: DataFrame = self.prep_stocks()
         print(self.stock_picks_today)
+        self._run_trading()
 
-    ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
+    # ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
     def run(self, sleep_next_x_seconds, until_time):
-        self.schedule.run_adhoc(self._run_trading, 24*60*60, until_time, FrequencyTag.DAILY)
+        self.schedule.run_adhoc(self.run_dummy, sleep_next_x_seconds, until_time, JobRunType.STANDARD)
 
     def prep_stocks(self) -> DataFrame:
         logger.info("Downloading data ...")
@@ -130,3 +131,7 @@ class MomentumStrategy(Strategy):
         for symbol in symbols:
             qty = position_size_per_symbol / self.data_service.get_current_price(symbol)
             self.order_service.market_buy(symbol, int(qty))
+
+    @staticmethod
+    def run_dummy():
+        logger.info("Running dummy job ...")
