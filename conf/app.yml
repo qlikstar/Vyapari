@@ -3,6 +3,7 @@ common:
   dry_run: True
 
 strategy: MomentumStrategy
+adhoc_run: False
 
 # Config for ORBStrategy
 ORBStrategy:

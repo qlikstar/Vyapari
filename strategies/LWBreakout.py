@@ -10,7 +10,7 @@ from attr import dataclass
 from fmp_python.fmp import Interval
 from kink import di, inject
 
-from core.schedule import SafeScheduler, FrequencyTag
+from core.schedule import SafeScheduler, JobRunType
 from scheduled_jobs.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
@@ -70,7 +70,7 @@ class LWBreakout(object):
 
     def run(self, sleep_next_x_seconds, until_time):
         self.order_service.close_all()
-        self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, FrequencyTag.MINUTELY)
+        self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, JobRunType.STANDARD)
 
     def _run_singular(self):
         if not self.order_service.is_market_open():

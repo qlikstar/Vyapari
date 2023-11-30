@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 @inject
-class InitialSteps(object):
+class PreRunSteps(object):
     def __init__(self):  # db, broker
         self.account_service: AccountService = di[AccountService]
         self.notification: Notification = di[Notification]
@@ -21,7 +21,6 @@ class InitialSteps(object):
         logger.info(message)
         self.notification.notify(message)
 
-    @staticmethod
-    def show_configuration():
+    def show_configuration(self):
         # TODO: Implement this
-        logger.info("Running: initial steps")
+        logger.info("Running: pre run steps ...")
