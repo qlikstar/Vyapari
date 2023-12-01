@@ -3,16 +3,18 @@ import os
 import yaml
 from alpaca.trading import TradingClient
 
+CONF_ENV_YML = "conf/env.yml"
+
 
 def load_env_variables():
-    with open("conf/env.yml") as f:
+    with open("%s" % CONF_ENV_YML) as f:
         config = yaml.safe_load(f)
         for key, value in config.items():
             os.environ[key] = str(value)
 
 
 def load_app_variables(input_key):
-    with open("conf/app.yml") as f:
+    with open("%s" % CONF_ENV_YML) as f:
         config = yaml.safe_load(f)
         for key, value in config.items():
             if input_key == key:

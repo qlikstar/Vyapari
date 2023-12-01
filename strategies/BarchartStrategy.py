@@ -4,10 +4,9 @@ from typing import List
 from alpaca.trading import TradeAccount
 from kink import di
 from pandas import DataFrame
-from scipy import stats
 
 from core.schedule import SafeScheduler, JobRunType
-from universe.watchlist import WatchList
+from universe.BarchartUniverse import BarchartUniverse
 from services.account_service import AccountService
 from services.data_service import DataService
 from services.order_service import OrderService
@@ -17,18 +16,16 @@ from strategies.strategy import Strategy
 logger = logging.getLogger(__name__)
 
 '''
-    Inspired from: 
-    https://github.com/nickmccullum/algorithmic-trading-python/blob/master/finished_files/002_quantitative_momentum_strategy.ipynb
-    https://www.youtube.com/watch?v=xfzGZB4HhEE&t=9090s
+    URL: https://www.barchart.com/stocks/top-100-stocks?orderBy=weightedAlpha&orderDir=desc
 '''
 
 MAX_STOCKS_TO_PURCHASE = 30
 
 
-class MomentumStrategy(Strategy):
+class BarchartStrategy(Strategy):
 
     def __init__(self):
-        self.watchlist = WatchList()
+        self.universe = di[BarchartUniverse]
         self.order_service: OrderService = di[OrderService]
         self.position_service: PositionService = di[PositionService]
         self.data_service: DataService = di[DataService]
@@ -62,35 +59,8 @@ class MomentumStrategy(Strategy):
     def prep_stocks(self) -> DataFrame:
         logger.info("Downloading data ...")
 
-        # Get universe from the watchlist
-        from_watchlist: List[str] = self.watchlist.get_universe(2000000, 1.0)
-        from_positions: List[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
-        universe: List[str] = from_watchlist + from_positions
-
-        # Fetch stock price change data
-        hqm_base: DataFrame = self.data_service.stock_price_change(universe)
-
-        # Filter out records where '1M' is greater than 150%
-        hqm = hqm_base[hqm_base['1M'] <= 150]
-
-        time_periods_weights = {'1M': 3, '3M': 3, '6M': 2, '1Y': 1}
-
-        # Calculate return percentiles with weights
-        for time_period, weight in time_periods_weights.items():
-            hqm[f'{time_period} Return Percentile'] = stats.percentileofscore(
-                hqm[time_period], hqm[time_period]) / 100 * weight
-
-        # Calculate weighted HQM Score
-        weighted_scores = hqm[[f'{time_period} Return Percentile' for time_period in time_periods_weights.keys()]]
-        hqm['HQM Score'] = weighted_scores.sum(axis=1)
-
-        # Sort by HQM Score and return the top 51 rows
-        hqm = hqm.sort_values(by='HQM Score', ascending=False).head(51)
-
-        # Print the DataFrame
-        print(hqm[['HQM Score'] + [f'{time_period} Return Percentile' for time_period in
-                                   time_periods_weights.keys()]])
-
+        # Get universe of stocks
+        hqm: DataFrame = self.universe.get_stocks_df().head(51)
         return hqm
 
     def _run_trading(self):

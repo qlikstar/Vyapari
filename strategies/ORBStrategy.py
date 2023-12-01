@@ -10,8 +10,8 @@ import talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
-from core.schedule import SafeScheduler
-from scheduled_jobs.watchlist import WatchList
+from core.schedule import SafeScheduler, JobRunType
+from universe.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService

@@ -27,9 +27,10 @@ MARKET_CLOSE = "13:00"
 
 class Frequency(Enum):
     DAILY = 24 * 60 * 60
-    MINUTELY = 60
-    FIVE_MINUTELY = 300
-    TEN_MINUTELY = 600
+    MIN_1 = 60
+    MIN_5 = 300
+    MIN_10 = 600
+    MIN_30 = 1800
     HOURLY = 3600
 
 
@@ -37,8 +38,8 @@ class Frequency(Enum):
 class AppConfig(object):
 
     def __init__(self):
-        self.strategy_name = load_app_variables("strategy")
-        self.adhoc_run: bool = load_app_variables("adhoc_run")
+        self.strategy_name = load_app_variables("STRATEGY")
+        self.adhoc_run: bool = load_app_variables("ADHOC_RUN")
         strategy_class = getattr(importlib.import_module(f"strategies.{self.strategy_name}"), self.strategy_name)
         self.strategy = strategy_class()
 
@@ -53,7 +54,7 @@ class AppConfig(object):
         return self.strategy_name
 
     def start(self):
-        self.schedule.every(10).seconds.do(run_threaded, self.register_heartbeat).tag(JobRunType.HEARTBEAT)
+        self.schedule.every(60).seconds.do(run_threaded, self.register_heartbeat).tag(JobRunType.HEARTBEAT)
         self.pre_run_steps.show_portfolio_details()
         logger.info("Scheduling jobs... ")
         self._schedule_daily_jobs()
@@ -84,6 +85,7 @@ class AppConfig(object):
 
     def initialize_and_run_once(self, sleep_next_x_seconds, until_time):
         self.init_run()
+        self.runtime_steps.run(sleep_next_x_seconds, until_time)
         self.strategy.run(sleep_next_x_seconds, until_time)
         return schedule.CancelJob  # Runs once and kills itself
 
@@ -104,23 +106,23 @@ class AppConfig(object):
 
     def _schedule_daily_jobs(self):
 
-        daily_jobs = [
-            (START_TRADING, self.runtime_steps.run, Frequency.TEN_MINUTELY.value, MARKET_CLOSE),
-            (BEFORE_MARKET_OPEN, self.init_run),
-            (START_TRADING, self.strategy.run, Frequency.TEN_MINUTELY.value, STOP_TRADING),
-            # (STOP_TRADING, self.app_config.run_before_market_close),
-            (MARKET_CLOSE, self.run_after_market_close),
-        ]
-
         # Needed for testing and adhoc runs
         now_plus_30 = datetime.now() + timedelta(seconds=61)
         at_time = f"{now_plus_30.hour:02d}:{now_plus_30.minute:02d}"
         logger.info(f"Run once jobs start at: {at_time}")
 
+        daily_jobs = [
+            (START_TRADING, self.runtime_steps.run, Frequency.MIN_10.value, MARKET_CLOSE),
+            (BEFORE_MARKET_OPEN, self.init_run),
+            (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING),
+            # (STOP_TRADING, self.app_config.run_before_market_close),
+            (MARKET_CLOSE, self.run_after_market_close),
+        ]
+
         if self._is_within_trading_window():
-            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.TEN_MINUTELY.value, STOP_TRADING))
+            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, STOP_TRADING))
         elif self.adhoc_run:
-            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.TEN_MINUTELY.value, "23:59"))
+            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, "23:59"))
 
         for time, func, *args in daily_jobs:
             self.schedule.every().day.at(time).do(func, *args).tag(JobRunType.STANDARD)

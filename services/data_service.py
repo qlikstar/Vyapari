@@ -1,4 +1,7 @@
+import logging
+import time
 from enum import Enum
+from typing import List
 
 from fmp_python.fmp import FMP, Interval
 from kink import inject
@@ -17,6 +20,10 @@ class DataService(object):
 
     def __init__(self):
         self.api = FMP()
+
+        # Initialize a logger
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
     def get_current_price(self, symbol) -> float:
         return self.api.get_quote_short(symbol).iloc[-1]['price']
@@ -40,8 +47,28 @@ class DataService(object):
     0   AAPL -0.7004  0.04213  ...   335.21191    915.88235  147909.34944
     1   NVDA -1.9295 -3.11486  ...  1148.71929  12213.40206  116381.37312
     '''
-    def stock_price_change(self, symbols: list[str]) -> DataFrame:
-        dfs = [self.api.stock_price_change(sym) for sym in symbols]
+    def stock_price_change(self, symbols: List[str]) -> DataFrame:
+        retry_count = 5
+        dfs = []
+
+        for sym in symbols:
+            result = None
+            for attempt in range(1, retry_count + 1):
+                result = self.api.stock_price_change(sym)
+                if isinstance(result, DataFrame) and not result.empty:
+                    self.logger.info(result)
+                    dfs.append(result)
+                    break  # Break out of the retry loop if result is not None
+                else:
+                    self.logger.warning(
+                        f"Attempt {attempt}/{retry_count} for {sym} returned None. Retrying..."
+                    )
+                    # Add a delay between retries
+                    time.sleep(1)  # 1-second delay
+
+            if isinstance(result, DataFrame) and result.empty:
+                self.logger.warning(f"API call for {sym} returned None after {retry_count} attempts.")
+
         return concat(dfs, ignore_index=True)
 
     def save_history(self, symbol, interval: Interval, limit: int = 252):
