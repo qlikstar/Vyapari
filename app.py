@@ -46,11 +46,10 @@ def shutdown_event():
     logger.info("Exited")
 
 
-from webapp import callback_router, position_router, scheduler_router, order_router, ui_router
+from webapp import position_router, scheduler_router, order_router, ui_router
 
 app.include_router(position_router.route)
 app.include_router(scheduler_router.route)
-app.include_router(callback_router.route)
 app.include_router(order_router.route)
 # app.include_router(ui_router.route)
 

@@ -82,16 +82,4 @@ def get_high_vol_stocks() -> list[str]:
         {'AAL', 'AAPL', 'AMD', 'AMZN', 'ANET', 'BABA', 'CHPT', 'CMG', 'COST', 'CVS', 'DBX', 'DIS', 'EDIT',
          'FTEC', 'FTNT', 'GOOG', 'INTC', 'JD', 'LMT', 'M', 'MA', 'MDB', 'META', 'MSFT', 'NDAQ', 'NICE', 'NIO', 'NOA',
          'NOW', 'NVDA', 'NVTA', 'OKTA', 'PANW', 'PAYC', 'PYPL', 'QCOM', 'SEDG', 'SHOP', 'SQ', 'T', 'TCEHY', 'TEAM',
-         'TSLA', 'TSM', 'TTWO', 'TWLO', 'V', 'VO', 'WDAY', 'WIX', 'WMT', 'ZM'
-
-
-         # https://www.barchart.com/stocks/top-100-stocks?orderBy=weightedAlpha&orderDir=desc
-         # 'DAKT', 'IZM', 'ACIC', 'CBAY', 'CABA', 'TAST', 'HRTG', 'LMB',
-         # 'MPTI', 'CSPI', 'ANF', 'MYO', 'SHOT', 'IMMX', 'EDU', 'LUXH', 'APP', 'GNE', 'ELTK', 'CAMT', 'SYM', 'OLMA',
-         # 'BWAY', 'CWCO', 'META', 'VRT', 'MAMA', 'SMCI', 'NVDA', 'TALK', 'LPG', 'GDHG', 'SKYW', 'PLSE', 'GASS', 'YHGJ',
-         # 'DUOL', 'INTR', 'MLTX', 'HCI', 'MSTR', 'NGL', 'LWAY', 'XPO', 'FTAI', 'CLS', 'DKNG', 'QUIK', 'ZJYL', 'MOD',
-         # 'GEOS', 'POWL', 'USAP', 'MHO', 'MNSO', 'FOR', 'SLNO', 'MDB', 'TRML', 'DFH', 'PLTR', 'IRON', 'COCO', 'VIST',
-         # 'BWMX', 'NPCE', 'FG', 'RXST', 'AUGX', 'ESCA', 'CMPR', 'SPOT', 'IOT', 'IESC', 'UGP', 'BRZE', 'BRBR', 'KTOS',
-         # 'SVRA', 'RELY', 'WFRD', 'FRGE', 'CVNA', 'ROVR', 'AFRM', 'TAL', 'LI', 'UEC', 'LFMD', 'ALKT', 'ACMR', 'CASI',
-         # 'BLDR', 'FSTR', 'VRNS', 'SPLK', 'AMRX', 'UBER', 'CCJ', 'NATR'
-         })
+         'TSLA', 'TSM', 'TTWO', 'TWLO', 'V', 'VO', 'WDAY', 'WIX', 'WMT', 'ZM'})

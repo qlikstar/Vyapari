@@ -29,7 +29,7 @@ GitPython==0.3.6
 greenlet==3.0.1
 h11==0.14.0
 httpcore==1.0.2
-httpx==0.25.1
+httpx==0.25.2
 idna==3.4
 imagesize==1.4.1
 Jinja2==3.1.2
@@ -53,8 +53,9 @@ Pygments==2.17.2
 PyMySQL==1.1.0
 pyparsing==3.1.1
 pypi-publisher==0.0.4
+pyTelegramBotAPI==4.14.0
 python-dateutil==2.8.2
-python-telegram-bot==20.6
+python-telegram-bot==20.7
 pytz==2023.3.post1
 pytz-deprecation-shim==0.1.0.post0
 PyYAML==6.0.1
