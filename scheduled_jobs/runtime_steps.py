@@ -26,32 +26,37 @@ class RuntimeSteps(object):
         self.schedule.run_adhoc(self._run_singular, sleep_next_x_seconds, until_time, JobRunType.STANDARD)
 
     def _run_singular(self):
-        self._run_stats()
+        self.run_stats()
         self._update_order_status()
 
-    def _run_stats(self):
+    def run_stats(self):
         total_unrealized_pl = 0
 
-        pl_msg = "***** ======  Total unrealized (P/L)  ====== *****\n"
+        pl_msg = "***====== Total unrealized (P/L)  ======***\n"
+        pl_msg += "No. Symbol  Curr.Price  PL (USD)   PL (%)\n"
+        pl_msg += "==========================================\n"
         log_msg = pl_msg
         for count, position in enumerate(self.broker.get_positions()):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             log_msg += (
-                f"{(count + 1):<4}: {position.symbol:<5} - ${float(position.current_price):<8}"
-                f"{Fore.GREEN if float(position.unrealized_pl) > 0 else Fore.RED}"
-                f" -> ${float(position.unrealized_pl):<8}"
-                f"% gain: {float(position.unrealized_plpc) * 100:.2f}%"
+                f"{(count + 1):<3} "
+                f"{position.symbol:<7}  "
+                f"${float(position.current_price):>7.2f} "
+                f"{Fore.GREEN if float(position.unrealized_pl) > 0 else Fore.RED}  "
+                f"${float(position.unrealized_pl):>7.2f} "  # Fixed formatting
+                f"{float(position.unrealized_plpc) * 100:>6.2f}%"
                 f"{Style.RESET_ALL}\n"
             )
             pl_msg += (
-                f"{(count + 1):<2} {position.symbol:<5} - ${float(position.current_price):<8}"
-                f"{float(position.unrealized_pl)}"
-                f" -> ${float(position.unrealized_pl):<8}"
-                f"% gain: {float(position.unrealized_plpc) * 100:.2f}%\n"
+                f"{(count + 1):<3} "
+                f"{position.symbol:<7}  "
+                f"${float(position.current_price):>7.2f}  "
+                f"${float(position.unrealized_pl):>7.2f} "
+                f"{float(position.unrealized_plpc) * 100:>6.2f}%\n"
             )
 
-        log_msg += "============================================\n"
-        pl_msg += "============================================\n"
+        log_msg += "==========================================\n"
+        pl_msg += "==========================================\n"
 
         log_msg += "Total unrealized P/L: ${:.2f}\n".format(total_unrealized_pl)
         pl_msg += "Total unrealized P/L: ${:.2f}\n".format(total_unrealized_pl)
