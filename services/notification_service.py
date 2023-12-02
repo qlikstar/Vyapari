@@ -76,8 +76,11 @@ class TelegramNotification(Notification):
         self.bot = self.telegram.bot
 
     def notify(self, message):
-        logger.info(f"Telegram message sent: {message}")
-        self.telegram.send_message(chat_id=self.chat_id, response=message)
+        try:
+            self.telegram.send_message(chat_id=self.chat_id, response=message)
+        except Exception as ex:
+            logger.error(f"Exception occurred while sending error notification: {ex}")
+        logger.info(f"Telegram message sent: \n{message}")
 
     def err_notify(self, message):
         try:

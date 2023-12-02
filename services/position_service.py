@@ -2,23 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List
 
+from alpaca.trading import Position
 from kink import inject, di
 
 from core.database import Database
 from services.broker_service import Broker
-
-
-@dataclass
-class Position:
-    symbol: str
-    exchange: str
-    side: str
-    qty: int
-    entry_price: float
-    current_price: float
-    unrealized_profit: float
-    unrealized_profit_pc: float
-    order_filled_at: datetime
 
 
 @inject
@@ -43,13 +31,3 @@ class PositionService(object):
 
     def get_all_positions(self) -> List[Position]:
         return self.broker.get_positions()
-
-    # TODO: merge this method with get_all_positions()
-    def get_all_pos(self) -> List[Position]:
-        result = []
-        for pos in self.broker.get_positions():
-            result.append(Position(pos.symbol, pos.exchange, pos.side.upper(),
-                                   int(pos.qty), float(pos.avg_entry_price), float(pos.current_price),
-                                   float(pos.unrealized_pl), float(pos.unrealized_plpc),
-                                   self.db.get_latest_filled_dt(pos.symbol)))
-        return result

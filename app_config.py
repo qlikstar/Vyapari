@@ -54,8 +54,9 @@ class AppConfig(object):
         return self.strategy_name
 
     def start(self):
-        self.schedule.every(60).seconds.do(run_threaded, self.register_heartbeat).tag(JobRunType.HEARTBEAT)
-        self.pre_run_steps.show_portfolio_details()
+        self.schedule.every(Frequency.MIN_1.value).seconds.do(run_threaded, self.register_heartbeat) \
+            .tag(JobRunType.HEARTBEAT)
+
         logger.info("Scheduling jobs... ")
         self._schedule_daily_jobs()
 
@@ -91,7 +92,7 @@ class AppConfig(object):
 
     def init_run(self):
         logger.info(f"Initializing trader ... Running strategy: {self.strategy_name}")
-        self.pre_run_steps.show_portfolio_details()
+        self.pre_run_steps.show_configuration()
         self.strategy.init_data()
 
     def run_before_market_close(self):
@@ -112,7 +113,7 @@ class AppConfig(object):
         logger.info(f"Run once jobs start at: {at_time}")
 
         daily_jobs = [
-            (START_TRADING, self.runtime_steps.run, Frequency.MIN_10.value, MARKET_CLOSE),
+            (START_TRADING, self.runtime_steps.run, Frequency.MIN_30.value, MARKET_CLOSE),
             (BEFORE_MARKET_OPEN, self.init_run),
             (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING),
             # (STOP_TRADING, self.app_config.run_before_market_close),

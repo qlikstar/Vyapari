@@ -3,6 +3,7 @@ import time
 from enum import Enum
 from typing import List
 
+import pandas as pd
 from fmp_python.fmp import FMP, Interval
 from kink import inject
 from pandas import DataFrame, concat
@@ -69,7 +70,10 @@ class DataService(object):
             if isinstance(result, DataFrame) and result.empty:
                 self.logger.warning(f"API call for {sym} returned None after {retry_count} attempts.")
 
-        return concat(dfs, ignore_index=True)
+        if len(dfs) > 0:
+            return concat(dfs, ignore_index=True)
+        else:
+            return pd.DataFrame()
 
     def save_history(self, symbol, interval: Interval, limit: int = 252):
         pass
