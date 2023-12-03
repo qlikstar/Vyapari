@@ -4,6 +4,7 @@ import threading
 from datetime import datetime, timedelta
 from enum import Enum
 from time import sleep
+from typing import Optional, Hashable
 
 import schedule
 from kink import inject, di
@@ -23,6 +24,7 @@ BEFORE_MARKET_OPEN = '06:30'
 START_TRADING = "08:00"
 STOP_TRADING = "12:00"
 MARKET_CLOSE = "13:00"
+MAX_TIME = "23:59"
 
 
 class Frequency(Enum):
@@ -49,28 +51,34 @@ class AppConfig(object):
         self.runtime_steps: RuntimeSteps = di[RuntimeSteps]
         self.post_run_steps: PostRunSteps = di[PostRunSteps]
         self.schedule: SafeScheduler = di[SafeScheduler]
+        self.schedule.every(Frequency.MIN_1.value).seconds.do(run_threaded, self.register_heartbeat) \
+            .tag(JobRunType.HEARTBEAT)
 
     def get_strategy(self):
         return self.strategy_name
 
     def start(self):
-        self.schedule.every(Frequency.MIN_1.value).seconds.do(run_threaded, self.register_heartbeat) \
-            .tag(JobRunType.HEARTBEAT)
-
         logger.info("Scheduling jobs... ")
-        self._schedule_daily_jobs()
+        self._schedule_weekday_jobs()
+        self._schedule_run_now_jobs()
 
         while True:
             self.schedule.run_pending()
             sleep(10)  # change this if any of the above jobs are more frequent
 
-    '''Clears only DAILY jobs'''
+    '''
+    Clears only DAILY jobs
+    '''
 
     def cancel(self):
         logger.info("Cancelling scheduler service... ")
-        self._cancel_jobs(JobRunType.STANDARD)
+        for job in self.schedule.get_jobs(JobRunType.STANDARD):
+            logger.info(f"Cancelling job: {job}")
+            self.schedule.cancel_job(job)
 
-    '''Clears both HEARTBEAT and DAILY jobs'''
+    '''
+    Clears both HEARTBEAT and DAILY jobs
+    '''
 
     def cancel_all(self):
         self.cancel()
@@ -79,10 +87,10 @@ class AppConfig(object):
     def restart(self):
         logger.info("Restarting scheduler service... ")
         self.cancel()
-        self._schedule_daily_jobs()
+        self.start()
 
-    def get_all_schedules(self) -> list[schedule.Job]:
-        return self.schedule.get_jobs()
+    def get_all_schedules(self, tag: Optional[Hashable] = None) -> list[schedule.Job]:
+        return self.schedule.get_jobs(tag=tag)
 
     def initialize_and_run_once(self, sleep_next_x_seconds, until_time):
         self.init_run()
@@ -105,14 +113,8 @@ class AppConfig(object):
         self.database.ping()
         logger.info(f"Registering heartbeat ... ")
 
-    def _schedule_daily_jobs(self):
-
-        # Needed for testing and adhoc runs
-        now_plus_30 = datetime.now() + timedelta(seconds=61)
-        at_time = f"{now_plus_30.hour:02d}:{now_plus_30.minute:02d}"
-        logger.info(f"Run once jobs start at: {at_time}")
-
-        daily_jobs = [
+    def _schedule_weekday_jobs(self):
+        weekday_jobs = [
             (START_TRADING, self.runtime_steps.run, Frequency.MIN_30.value, MARKET_CLOSE),
             (BEFORE_MARKET_OPEN, self.init_run),
             (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING),
@@ -120,16 +122,40 @@ class AppConfig(object):
             (MARKET_CLOSE, self.run_after_market_close),
         ]
 
-        if self._is_within_trading_window():
-            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, STOP_TRADING))
-        elif self.adhoc_run:
-            daily_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, "23:59"))
+        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        for day in weekdays:
+            for time, func, *args in weekday_jobs:
+                getattr(self.schedule.every(), day).at(time).do(func, *args).tag(JobRunType.STANDARD)
 
-        for time, func, *args in daily_jobs:
-            self.schedule.every().day.at(time).do(func, *args).tag(JobRunType.STANDARD)
-
-        logger.info("***** --- Jobs have been scheduled --- *****")
+        logger.info("***** --- Weekday Jobs have been scheduled --- *****")
         [logger.info(s) for s in self.get_all_schedules()]
+
+    '''
+    Runs only if "ADHOC_RUN" is True or if the service is restarted during an ongoing trading window
+    These jobs just run once and then the regular schedule catches up
+    '''
+
+    def _schedule_run_now_jobs(self):
+        run_now_jobs = []
+
+        if self._is_within_trading_window() or self.adhoc_run:
+
+            next_minute = datetime.now() + timedelta(seconds=61)
+            at_time = f"{next_minute.hour:02d}:{next_minute.minute:02d}"
+
+            if self._is_within_trading_window():
+                logger.info("*** Within trading window ***")
+                run_now_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, STOP_TRADING))
+            elif self.adhoc_run:
+                run_now_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, MAX_TIME))
+                logger.info(f"*** Adhoc run flag set to : ***{self.adhoc_run}")
+            logger.info(f"Run now jobs start at: {at_time}")
+
+        for time, func, *args in run_now_jobs:
+            self.schedule.every().day.at(time).do(func, *args).tag(JobRunType.STANDARD, JobRunType.RUN_NOW)
+
+        logger.info("***** --- Run now Jobs have been scheduled --- *****")
+        [logger.info(s) for s in self.get_all_schedules(JobRunType.RUN_NOW)]
 
     @staticmethod
     def _is_within_trading_window() -> bool:
@@ -137,12 +163,6 @@ class AppConfig(object):
         stop_trading_time = datetime.strptime(STOP_TRADING, '%H:%M').time()
         current_time = datetime.now().time()
         return start_trading_time < current_time < stop_trading_time
-
-    def _cancel_jobs(self, tag):
-        for job in self.schedule.get_jobs(tag):
-            logger.info(f"Tag: {tag} \tCancelling job: {job}")
-            self.schedule.cancel_job(job)
-        self.schedule.clear(tag)
 
 
 def run_threaded(job_func):

@@ -13,6 +13,7 @@ logger.setLevel(level=logging.INFO)
 class JobRunType(Enum):
     STANDARD = "STANDARD"
     HEARTBEAT = "HEARTBEAT"
+    RUN_NOW = "RUN_NOW"
 
 
 @inject
