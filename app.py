@@ -7,12 +7,10 @@ from kink import di
 
 from app_config import AppConfig
 from core.db_tables import db
-from fastapi.templating import Jinja2Templates
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title='Vyapari', description='APIs for Vyapari', version='0.0.1-SNAPSHOT')
-templates = Jinja2Templates(directory="templates")
 
 app_config = di[AppConfig]
 loop = asyncio.new_event_loop()
@@ -51,7 +49,7 @@ from webapp import position_router, scheduler_router, order_router, ui_router
 app.include_router(position_router.route)
 app.include_router(scheduler_router.route)
 app.include_router(order_router.route)
-# app.include_router(ui_router.route)
+app.include_router(ui_router.route)
 
 app.add_event_handler("startup", startup_event)
 app.add_event_handler("shutdown", shutdown_event)

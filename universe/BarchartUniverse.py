@@ -81,8 +81,10 @@ class BarchartUniverse(Universe):
 
     def get_stocks_df(self, params=None) -> DataFrame:
         json_data = self.make_api_request()
-        df = pd.DataFrame(json_data['data'])
-        df = df.drop("raw", axis=1)
+        stocks_data = []
+        for row in json_data['data']:
+            stocks_data.append(row['raw'])
+        df = pd.DataFrame(stocks_data)
         return df
 
     def get_stocks(self, params=None) -> List[str]:

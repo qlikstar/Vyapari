@@ -29,7 +29,7 @@
                 <h2 class="ui header">
                     <i class="briefcase icon"></i>
                     <div class="content">
-                    Stocks traded today
+                    Current Investments
                     <div class="sub header">Positions currently held</div>
                     </div>
                 </h2>
@@ -117,19 +117,19 @@
                       "width": "100%",
                       "height": 500,
                       "symbol": "{{position.symbol}}",
-                      "interval": "5",
+                      "interval": "D",
                       "timezone": "America/Los_Angeles",
                       "theme": "light",
                       "style": "8",
                       "locale": "en",
                       "toolbar_bg": "#f1f3f6",
                       "enable_publishing": false,
+                      "range": "3M",
                       "hide_side_toolbar": false,
                       "allow_symbol_change": true,
                       "save_image": false,
                       "studies": [
-                            "MAExp@tv-basicstudies",
-                            "RSI@tv-basicstudies"
+                            "MAExp@tv-basicstudies"
                           ]
                     }
                       );

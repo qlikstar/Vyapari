@@ -33,7 +33,7 @@ class RuntimeSteps(object):
         total_unrealized_pl = 0
 
         pl_msg = "***====== Total unrealized (P/L)  ======***\n"
-        pl_msg += "No. Symbol  Curr.Price  PL (USD)   PL (%)\n"
+        pl_msg += "No. Symbol  Invest Amt  PL (USD)   PL (%)\n"
         pl_msg += "==========================================\n"
         log_msg = pl_msg
         for count, position in enumerate(self.broker.get_positions()):
@@ -41,7 +41,7 @@ class RuntimeSteps(object):
             log_msg += (
                 f"{(count + 1):<3} "
                 f"{position.symbol:<7}  "
-                f"${float(position.current_price):>7.2f} "
+                f"${float(position.cost_basis):>7.2f} "
                 f"{Fore.GREEN if float(position.unrealized_pl) > 0 else Fore.RED}  "
                 f"${float(position.unrealized_pl):>7.2f} "  # Fixed formatting
                 f"{float(position.unrealized_plpc) * 100:>6.2f}%"
@@ -50,7 +50,7 @@ class RuntimeSteps(object):
             pl_msg += (
                 f"{(count + 1):<3} "
                 f"{position.symbol:<7}  "
-                f"${float(position.current_price):>7.2f}  "
+                f"${float(position.cost_basis):>7.2f}  "
                 f"${float(position.unrealized_pl):>7.2f} "
                 f"{float(position.unrealized_plpc) * 100:>6.2f}%\n"
             )

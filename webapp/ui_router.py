@@ -5,11 +5,13 @@ from typing import List
 from fastapi import Request, APIRouter
 from fastapi.responses import HTMLResponse
 from kink import di
+from starlette.templating import Jinja2Templates
 
-from app import templates
 from services.account_service import AccountService
 from services.order_service import OrderService
 from services.position_service import PositionService, Position
+
+templates = Jinja2Templates(directory="templates")
 
 route = APIRouter(
     prefix="/ui",
@@ -40,21 +42,21 @@ def get_history() -> []:
 
 def current_positions() -> []:
     curr_positions = []
-    all_positions: List[Position] = position_service.get_all_pos()
+    all_positions: List[Position] = position_service.get_all_positions()
 
     for count, position in enumerate(all_positions):
         curr_positions.append({
             "color": choice(colors),
             "symbol": position.symbol,
-            "exchange": position.exchange,
-            "type": position.side,
+            "exchange": position.exchange.value,
+            "type": position.side.value,
             "position_size": position.qty,
-            "entry_price": float(position.entry_price),
-            "current_price": float(position.current_price),
-            "profit": f"${float(position.unrealized_profit): 6.2f}",
-            "pl_color": "olive" if float(position.unrealized_profit) > 0 else "orange",
-            "filled_at": position.order_filled_at.strftime(
-                "%Y-%m-%d %I:%M %p") if position.order_filled_at is not None else 'Not found'
+            "entry_price": float(position.cost_basis),
+            "current_price": float(position.market_value),
+            "profit": f"${float(position.unrealized_pl): 6.2f}",
+            "pl_color": "olive" if float(position.unrealized_plpc) > 0 else "orange",
+            # "filled_at": position.order_filled_at.strftime(
+            #     "%Y-%m-%d %I:%M %p") if position.order_filled_at is not None else 'Not found'
         })
     return curr_positions
 
