@@ -60,7 +60,8 @@ class BarchartStrategy(Strategy):
         logger.info("Downloading data ...")
 
         # Get universe of stocks
-        hqm: DataFrame = self.universe.get_stocks_df().head(51)
+        hqm: DataFrame = (self.universe.get_stocks_df().sort_values(by='currentRankUsTop100', ascending=True).head(51))
+        print(hqm)
         return hqm
 
     def _run_trading(self):

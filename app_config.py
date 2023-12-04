@@ -137,13 +137,14 @@ class AppConfig(object):
 
     def _schedule_run_now_jobs(self):
         run_now_jobs = []
+        is_within_trading_window: bool = self._is_within_trading_window()
 
-        if self._is_within_trading_window() or self.adhoc_run:
+        if is_within_trading_window or self.adhoc_run:
 
             next_minute = datetime.now() + timedelta(seconds=61)
             at_time = f"{next_minute.hour:02d}:{next_minute.minute:02d}"
 
-            if self._is_within_trading_window():
+            if is_within_trading_window:
                 logger.info("*** Within trading window ***")
                 run_now_jobs.append((at_time, self.initialize_and_run_once, Frequency.MIN_10.value, STOP_TRADING))
             elif self.adhoc_run:
@@ -151,18 +152,21 @@ class AppConfig(object):
                 logger.info(f"*** Adhoc run flag set to : ***{self.adhoc_run}")
             logger.info(f"Run now jobs start at: {at_time}")
 
-        for time, func, *args in run_now_jobs:
-            self.schedule.every().day.at(time).do(func, *args).tag(JobRunType.STANDARD, JobRunType.RUN_NOW)
+            for time, func, *args in run_now_jobs:
+                self.schedule.every().day.at(time).do(func, *args).tag(JobRunType.STANDARD, JobRunType.RUN_NOW)
 
-        logger.info("***** --- Run now Jobs have been scheduled --- *****")
-        [logger.info(s) for s in self.get_all_schedules(JobRunType.RUN_NOW)]
+            logger.info("***** --- Run now Jobs have been scheduled --- *****")
+            [logger.info(s) for s in self.get_all_schedules(JobRunType.RUN_NOW)]
 
-    @staticmethod
-    def _is_within_trading_window() -> bool:
-        start_trading_time = datetime.strptime(START_TRADING, '%H:%M').time()
-        stop_trading_time = datetime.strptime(STOP_TRADING, '%H:%M').time()
-        current_time = datetime.now().time()
-        return start_trading_time < current_time < stop_trading_time
+    def _is_within_trading_window(self) -> bool:
+
+        if self.order_service.is_market_open():
+            start_trading_time = datetime.strptime(START_TRADING, '%H:%M').time()
+            stop_trading_time = datetime.strptime(STOP_TRADING, '%H:%M').time()
+            current_time = datetime.now().time()
+            return start_trading_time < current_time < stop_trading_time
+        else:
+            return False
 
 
 def run_threaded(job_func):
