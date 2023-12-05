@@ -1,16 +1,18 @@
 import logging
-from typing import List
+import math
+from typing import List, Dict
 
 from alpaca.trading import TradeAccount
 from kink import di
 from pandas import DataFrame
 
 from core.schedule import SafeScheduler, JobRunType
+from services.notification_service import Notification
 from universe.BarchartUniverse import BarchartUniverse
 from services.account_service import AccountService
 from services.data_service import DataService
 from services.order_service import OrderService
-from services.position_service import PositionService
+from services.position_service import PositionService, Position
 from strategies.strategy import Strategy
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ class BarchartStrategy(Strategy):
         self.data_service: DataService = di[DataService]
         self.account_service: AccountService = di[AccountService]
         self.schedule: SafeScheduler = di[SafeScheduler]
+        self.notification: Notification = di[Notification]
 
         self.stock_picks_today: DataFrame = None
         self.stocks_traded_today: List[str] = []
@@ -61,7 +64,8 @@ class BarchartStrategy(Strategy):
 
         # Get universe of stocks
         hqm: DataFrame = (self.universe.get_stocks_df().sort_values(by='currentRankUsTop100', ascending=True).head(51))
-        print(hqm)
+        # Print the HQM stocks
+        self.show_stocks_df("HQM stocks today:\n", hqm)
         return hqm
 
     def _run_trading(self):
@@ -69,18 +73,20 @@ class BarchartStrategy(Strategy):
             logger.warning("Market is not open !")
             return
 
-        held_stocks = {x.symbol: x.qty for x in self.position_service.get_all_positions()}
+        held_stocks: Dict[str, Position] = {pos.symbol: pos for pos in self.position_service.get_all_positions()}
         # Extract unique values from the 'symbol' column while preserving order
         top_picks_today = self.stock_picks_today['symbol'].unique()
 
-        # Liquidate the previously held stocks if they don't come in the top 50 stocks
+        # Fetch the previously held stocks if they don't come in the top 50 stocks
         to_be_removed = []
         for held_stock in held_stocks.keys():
             if held_stock not in top_picks_today:
-                self.order_service.market_sell(held_stock, held_stocks[held_stock])
                 to_be_removed.append(held_stock)
 
+        # Liquidate the selected stocks
         for stock in to_be_removed:
+            self.notify_to_sell(held_stocks[stock])
+            self.order_service.market_sell(stock, int(held_stocks[stock].qty))
             del held_stocks[stock]
 
         if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
@@ -106,6 +112,33 @@ class BarchartStrategy(Strategy):
         for symbol in symbols:
             qty = position_size_per_symbol / self.data_service.get_current_price(symbol)
             self.order_service.market_buy(symbol, int(qty))
+
+    def show_stocks_df(self, msg: str, df: DataFrame):
+        msg += "=======================================\n"
+        msg += "Sym    Alpha   Rank  PrevRnk   Price  \n"
+        msg += "=======================================\n"
+        for index, row in df.iterrows():
+            msg += f"{row['symbol']:<7}"
+            msg += f"{row['weightedAlpha']:>6.2f}"
+            msg += f"{row['currentRankUsTop100']:>6}"
+
+            # Check if 'previousRank' is NaN before converting
+            previous_rank = row['previousRank']
+            msg += f"{int(previous_rank) if not math.isnan(previous_rank) else 'NaN':>8}"
+
+            msg += f"{row['lastPrice']:>8.2f}"
+            msg += "\n"
+        msg += "=======================================\n"
+        self.notification.notify(msg)
+
+    def notify_to_sell(self, position: Position):
+        msg = f"Selling {position.qty} of {position.symbol} at a total ${position.market_value} \n"
+
+        if float(position.unrealized_pl) > 0:
+            msg += f"at a PROFIT of {float(position.unrealized_pl):.2f} ({float(position.unrealized_plpc):.2f}%)"
+        else:
+            msg += f"at a LOSS of {float(position.unrealized_pl):.2f} ({float(position.unrealized_plpc):.2f}%)"
+        self.notification.notify(msg)
 
     @staticmethod
     def run_dummy():
