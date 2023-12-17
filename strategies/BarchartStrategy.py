@@ -83,23 +83,25 @@ class BarchartStrategy(Strategy):
             if held_stock not in top_picks_today:
                 to_be_removed.append(held_stock)
 
-        # Liquidate the selected stocks
-        for stock in to_be_removed:
-            self.notify_to_sell(held_stocks[stock])
-            self.order_service.market_sell(stock, int(held_stocks[stock].qty))
-            del held_stocks[stock]
+        if len(to_be_removed) > 0:
 
-        if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
-            no_of_stocks_to_purchase = MAX_STOCKS_TO_PURCHASE - len(held_stocks)
+            # Liquidate the selected stocks
+            for stock in to_be_removed:
+                self.notify_to_sell(held_stocks[stock])
+                self.order_service.market_sell(stock, int(held_stocks[stock].qty))
+                del held_stocks[stock]
 
-            stocks_to_purchase = []
-            for stock in top_picks_today:
-                if (stock not in held_stocks.keys()
-                        and self.order_service.is_tradable(stock)
-                        and len(stocks_to_purchase) < no_of_stocks_to_purchase):
-                    stocks_to_purchase.append(stock)
+            if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
+                no_of_stocks_to_purchase = MAX_STOCKS_TO_PURCHASE - len(held_stocks)
 
-            self.purchase_stocks(stocks_to_purchase)
+                stocks_to_purchase = []
+                for stock in top_picks_today:
+                    if (stock not in held_stocks.keys()
+                            and self.order_service.is_tradable(stock)
+                            and len(stocks_to_purchase) < no_of_stocks_to_purchase):
+                        stocks_to_purchase.append(stock)
+
+                self.purchase_stocks(stocks_to_purchase)
 
         else:
             logger.info("No stocks to purchase today")
