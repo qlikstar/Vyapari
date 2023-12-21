@@ -125,17 +125,20 @@ class MomentumStrategy(Strategy):
                 self.order_service.market_sell(stock, int(held_stocks[stock].qty))
                 del held_stocks[stock]
 
-            if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
-                no_of_stocks_to_purchase = MAX_STOCKS_TO_PURCHASE - len(held_stocks)
+        else:
+            logger.info("No stocks to be liquidated today")
 
-                stocks_to_purchase = []
-                for stock in top_picks_today:
-                    if (stock not in held_stocks.keys()
-                            and self.order_service.is_tradable(stock)
-                            and len(stocks_to_purchase) < no_of_stocks_to_purchase):
-                        stocks_to_purchase.append(stock)
+        if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
+            no_of_stocks_to_purchase = MAX_STOCKS_TO_PURCHASE - len(held_stocks)
 
-                self.purchase_stocks(stocks_to_purchase)
+            stocks_to_purchase = []
+            for stock in top_picks_today:
+                if (stock not in held_stocks.keys()
+                        and self.order_service.is_tradable(stock)
+                        and len(stocks_to_purchase) < no_of_stocks_to_purchase):
+                    stocks_to_purchase.append(stock)
+
+            self.purchase_stocks(stocks_to_purchase)
 
         else:
             logger.info("No stocks to purchase today")
