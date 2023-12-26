@@ -2,7 +2,7 @@
 # import decimal
 # from collections import defaultdict
 # from datetime import date
-# import logging
+# from core.logger import logger
 # from abc import ABC
 # from dataclasses import dataclass
 # from typing import List, Dict
@@ -18,8 +18,6 @@
 # from services.data_service import DataService
 # from services.order_service import OrderService
 # from services.position_service import PositionService
-#
-# logger = logging.getLogger(__name__)
 #
 #
 # @dataclass

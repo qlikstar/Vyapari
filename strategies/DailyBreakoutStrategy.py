@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -12,6 +11,7 @@ from finta import TA as talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
+from core.logger import logger
 from core.schedule import SafeScheduler, JobRunType
 from universe.watchlist import WatchList
 from services.data_service import DataService
@@ -39,8 +39,6 @@ Steps:
        
     alpaca.get_barset('QQQ', "15Min", start='2022-01-03T09:00:00-05:00', until='2022-01-03T10:15:00-05:00').df
 '''
-
-logger = logging.getLogger(__name__)
 
 
 class Target(Enum):

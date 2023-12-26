@@ -1,5 +1,4 @@
 import abc
-import logging
 import time
 from datetime import datetime
 from random import randint
@@ -10,10 +9,9 @@ from alpaca.trading.client import TradingClient
 from kink import di, inject
 from requests import ReadTimeout
 
+from core.logger import logger
 from core.broker import AlpacaBroker
 from services.notification_service import Notification
-
-logger = logging.getLogger(__name__)
 
 
 class Broker(abc.ABC):

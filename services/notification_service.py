@@ -1,6 +1,5 @@
 import abc
 import json
-import logging
 import os
 import time
 from abc import ABC
@@ -9,9 +8,8 @@ import requests
 from colorama import Fore, Style
 from kink import inject, di
 
+from core.logger import logger
 from core.telegram import Telegram
-
-logger = logging.getLogger(__name__)
 
 
 class Notification(ABC):

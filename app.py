@@ -1,14 +1,11 @@
 import asyncio
-import logging
-
 import uvicorn
 from fastapi import FastAPI
 from kink import di
 
 from app_config import AppConfig
 from core.db_tables import db
-
-logger = logging.getLogger(__name__)
+from core.logger import logger
 
 app = FastAPI(title='Vyapari', description='APIs for Vyapari', version='0.0.1-SNAPSHOT')
 

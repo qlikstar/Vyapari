@@ -1,11 +1,9 @@
-import logging
 from typing import List
 
 from kink import inject, di
 
+from core.logger import logger
 from services.data_service import DataService
-
-logger = logging.getLogger(__name__)
 
 
 @inject
@@ -20,7 +18,7 @@ class WatchList(object):
         all_stocks = list(all_stocks_df['symbol'])
         all_stocks.extend(get_high_vol_etfs())
         all_stocks.extend(get_high_vol_stocks())
-        print(f"All stocks: {all_stocks}")
+        logger.info(f"All stocks: {all_stocks}")
         return list(set(all_stocks))
 
 

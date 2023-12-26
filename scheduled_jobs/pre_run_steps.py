@@ -1,13 +1,10 @@
-import logging
-
 from alpaca.trading import TradeAccount
 from kink import di, inject
 
+from core.logger import logger
 from services.account_service import AccountService
 from services.notification_service import Notification
 from services.util import load_app_variables
-
-logger = logging.getLogger(__name__)
 
 
 @inject

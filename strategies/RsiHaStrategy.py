@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -9,7 +8,8 @@ import talib
 from fmp_python.fmp import Interval
 from kink import di, inject
 
-from core.schedule import SafeScheduler
+from core.logger import logger
+from core.schedule import SafeScheduler, JobRunType
 from universe.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
@@ -39,7 +39,6 @@ Steps:
        c. take profit: 2 X stop loss
 '''
 
-logger = logging.getLogger(__name__)
 pandas.set_option("display.max_rows", None, "display.max_columns", None)
 
 @dataclass

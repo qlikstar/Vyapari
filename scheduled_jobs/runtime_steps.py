@@ -1,16 +1,14 @@
-import logging
 from typing import List
 
 from alpaca.trading import Order
 from colorama import Fore, Style
 from kink import di, inject
 
+from core.logger import logger
 from core.schedule import SafeScheduler, JobRunType
 from services.broker_service import Broker
 from services.notification_service import Notification
 from services.order_service import OrderService
-
-logger = logging.getLogger(__name__)
 
 
 @inject

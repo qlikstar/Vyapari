@@ -1,13 +1,7 @@
-import logging
 from typing import Any
 
 import peewee
 from pydantic.utils import GetterDict
-
-# Set configurations for logger
-logging.basicConfig(format='[%(asctime)s %(levelname)s: %(message)s',
-                    datefmt='%Y-%m-%d %I:%M:%S %p]',
-                    level=logging.INFO)
 
 
 class PeeweeGetterDict(GetterDict):

@@ -1,4 +1,3 @@
-import logging
 from datetime import date
 from pathlib import Path
 from statistics import mean
@@ -10,13 +9,12 @@ from attr import dataclass
 from fmp_python.fmp import Interval
 from kink import di, inject
 
+from core.logger import logger
 from core.schedule import SafeScheduler, JobRunType
 from universe.watchlist import WatchList
 from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
