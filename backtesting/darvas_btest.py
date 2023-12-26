@@ -1,15 +1,12 @@
-import logging
-
 import pandas as pd
 from alpaca_trade_api.entity import BarSet
 from schedules.watchlist import WatchList
 
+from core.logger import logger
 from services.broker_service import AlpacaClient, Timeframe
 from services.notification_service import NoOpNotification
 from services.util import load_env_variables
 from strategies.strategy import Strategy
-
-logger = logging.getLogger(__name__)
 
 
 class DarvasBox(object):

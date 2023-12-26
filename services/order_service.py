@@ -1,4 +1,3 @@
-import logging
 import time
 from datetime import datetime, date, timedelta
 from random import randint
@@ -15,9 +14,9 @@ from kink import inject, di
 from core.broker import AlpacaBroker
 from core.database import Database
 from core.db_tables import OrderEntity
+from core.logger import logger
 from services.notification_service import Notification
 
-logger = logging.getLogger(__name__)
 timezone = pytz.timezone('America/Los_Angeles')
 
 

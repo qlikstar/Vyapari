@@ -1,4 +1,3 @@
-import logging
 from typing import List, Dict
 
 from alpaca.trading import TradeAccount
@@ -6,6 +5,7 @@ from kink import di
 from pandas import DataFrame
 from scipy import stats
 
+from core.logger import logger
 from core.schedule import SafeScheduler, JobRunType
 from services.notification_service import Notification
 from universe.watchlist import WatchList
@@ -15,7 +15,6 @@ from services.order_service import OrderService
 from services.position_service import PositionService, Position
 from strategies.strategy import Strategy
 
-logger = logging.getLogger(__name__)
 
 '''
     Inspired from: 
@@ -55,7 +54,8 @@ class MomentumStrategy(Strategy):
 
     def init_data(self) -> None:
         self.stock_picks_today: DataFrame = self.prep_stocks()
-        print(self.stock_picks_today)
+        logger.info("Stock picks for today")
+        logger.info(self.stock_picks_today)
         self._run_trading()
 
     # ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
@@ -92,8 +92,8 @@ class MomentumStrategy(Strategy):
         self.show_stocks_df("HQM stocks today:\n", hqm)
 
         # Print the DataFrame
-        print(hqm[['HQM Score'] + [f'{time_period} Return Percentile' for time_period in
-                                   TIME_PERIOD_WEIGHTS.keys()]])
+        logger.info(hqm[['HQM Score'] + [f'{time_period} Return Percentile' for time_period in
+                                         TIME_PERIOD_WEIGHTS.keys()]])
 
         return hqm
 

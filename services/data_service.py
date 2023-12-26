@@ -1,4 +1,3 @@
-import logging
 import time
 from enum import Enum
 from typing import List
@@ -7,6 +6,8 @@ import pandas as pd
 from fmp_python.fmp import FMP, Interval
 from kink import inject
 from pandas import DataFrame, concat
+
+from core.logger import logger
 
 
 class Timeframe(Enum):
@@ -21,10 +22,6 @@ class DataService(object):
 
     def __init__(self):
         self.api = FMP()
-
-        # Initialize a logger
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
 
     def get_current_price(self, symbol) -> float:
         return self.api.get_quote_short(symbol).iloc[-1]['price']
@@ -57,18 +54,18 @@ class DataService(object):
             for attempt in range(1, retry_count + 1):
                 result = self.api.stock_price_change(sym)
                 if isinstance(result, DataFrame) and not result.empty:
-                    self.logger.info(result)
+                    logger.info(result)
                     dfs.append(result)
                     break  # Break out of the retry loop if result is not None
                 else:
-                    self.logger.warning(
+                    logger.warning(
                         f"Attempt {attempt}/{retry_count} for {sym} returned None. Retrying..."
                     )
                     # Add a delay between retries
                     time.sleep(1)  # 1-second delay
 
             if isinstance(result, DataFrame) and result.empty:
-                self.logger.warning(f"API call for {sym} returned None after {retry_count} attempts.")
+                logger.warning(f"API call for {sym} returned None after {retry_count} attempts.")
 
         if len(dfs) > 0:
             return concat(dfs, ignore_index=True)

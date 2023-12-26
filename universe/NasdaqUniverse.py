@@ -1,4 +1,3 @@
-import logging
 import time
 from enum import Enum
 from random import randint
@@ -9,9 +8,8 @@ import requests
 from kink import inject
 from requests import ConnectTimeout, HTTPError, ReadTimeout, Timeout
 
+from core.logger import logger
 from universe.Universe import Universe
-
-logger = logging.getLogger(__name__)
 
 
 class StockType(Enum):

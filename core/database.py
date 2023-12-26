@@ -1,5 +1,4 @@
 import datetime
-import logging
 from datetime import date
 from datetime import datetime
 from typing import List
@@ -8,8 +7,7 @@ from kink import inject
 from peewee import fn
 
 from core.db_tables import OrderEntity, PositionEntity, StockEntity, AccountEntity, db
-
-logger = logging.getLogger(__name__)
+from core.logger import logger
 
 
 @inject

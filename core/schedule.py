@@ -1,13 +1,11 @@
 import datetime
-import logging
 from enum import Enum
 from traceback import format_exc
 
 from kink import inject
 from schedule import Scheduler
 
-logger = logging.getLogger('schedule')
-logger.setLevel(level=logging.INFO)
+from core.logger import logger
 
 
 class JobRunType(Enum):

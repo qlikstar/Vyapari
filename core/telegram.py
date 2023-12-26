@@ -1,4 +1,3 @@
-import logging
 import os
 
 import telebot
@@ -6,7 +5,7 @@ from kink import inject
 from telegram.constants import ParseMode
 from telegram.error import NetworkError
 
-logger = logging.getLogger(__name__)
+from core.logger import logger
 
 
 @inject

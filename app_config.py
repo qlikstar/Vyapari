@@ -1,5 +1,4 @@
 import importlib
-import logging
 import threading
 from datetime import datetime, timedelta
 from enum import Enum
@@ -9,6 +8,7 @@ from typing import Optional, Hashable
 import schedule
 from kink import inject, di
 
+from core.logger import logger
 from core.database import Database
 from core.schedule import SafeScheduler, JobRunType
 from scheduled_jobs.post_run_steps import PostRunSteps
@@ -16,9 +16,6 @@ from scheduled_jobs.pre_run_steps import PreRunSteps
 from scheduled_jobs.runtime_steps import RuntimeSteps
 from services.order_service import OrderService
 from services.util import load_app_variables
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 BEFORE_MARKET_OPEN = '06:30'
 START_TRADING = "08:00"

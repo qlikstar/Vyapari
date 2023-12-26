@@ -1,4 +1,3 @@
-import logging
 import os
 
 from alpaca.trading import TradingClient
@@ -7,8 +6,6 @@ from kink import inject
 KEY_ID = "KEY_ID"
 SECRET_KEY = "SECRET_KEY"
 PAPER_TRADING = "PAPER_TRADING"
-
-logger = logging.getLogger(__name__)
 
 
 @inject
