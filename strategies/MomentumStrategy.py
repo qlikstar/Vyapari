@@ -139,13 +139,17 @@ class MomentumStrategy(Strategy):
                                        self.position_service.get_all_positions()}
 
         size: int = 0
-        for symbol in symbols and size < MAX_STOCKS_TO_PURCHASE:
-            qty = int(position_size_per_symbol / self.data_service.get_current_price(symbol))
+        for symbol in symbols:
+            if size < MAX_STOCKS_TO_PURCHASE:
+                qty = int(position_size_per_symbol / self.data_service.get_current_price(symbol))
 
-            if qty > 0:
-                size += 1
-                qty_to_add = max(0, qty - held_stocks.get(symbol, 0))
-                self.order_service.market_buy(symbol, int(qty_to_add))
+                if qty > 0:
+                    size += 1
+                    qty_to_add = max(0, qty - held_stocks.get(symbol, 0))
+                    self.order_service.market_buy(symbol, int(qty_to_add))
+            else:
+                logger.info("All stocks rebalanced for today")
+                break
 
     def show_stocks_df(self, msg: str, df: DataFrame):
         msg += "=======================================\n"
