@@ -128,29 +128,24 @@ class MomentumStrategy(Strategy):
         else:
             logger.info("No stocks to be liquidated today")
 
-        if len(held_stocks) < MAX_STOCKS_TO_PURCHASE:
-            no_of_stocks_to_purchase = MAX_STOCKS_TO_PURCHASE - len(held_stocks)
+        buffer: int = 10
+        self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
 
-            stocks_to_purchase = []
-            for stock in top_picks_today:
-                if (stock not in held_stocks.keys()
-                        and self.order_service.is_tradable(stock)
-                        and len(stocks_to_purchase) < no_of_stocks_to_purchase):
-                    stocks_to_purchase.append(stock)
-
-            self.purchase_stocks(stocks_to_purchase)
-
-        else:
-            logger.info("No stocks to purchase today")
-
-    def purchase_stocks(self, symbols: list[str]):
+    def rebalance_stocks(self, symbols: list[str]):
         account: TradeAccount = self.account_service.get_account_details()
-        buying_power = float(account.buying_power) / int(account.multiplier)
-        position_size_per_symbol: float = buying_power / len(symbols)
+        position_size_per_symbol: float = float(account.portfolio_value) / MAX_STOCKS_TO_PURCHASE
 
-        for symbol in symbols:
-            qty = position_size_per_symbol / self.data_service.get_current_price(symbol)
-            self.order_service.market_buy(symbol, int(qty))
+        held_stocks: Dict[str, int] = {pos.symbol: int(pos.qty) for pos in
+                                       self.position_service.get_all_positions()}
+
+        size: int = 0
+        for symbol in symbols and size < MAX_STOCKS_TO_PURCHASE:
+            qty = int(position_size_per_symbol / self.data_service.get_current_price(symbol))
+
+            if qty > 0:
+                size += 1
+                qty_to_add = max(0, qty - held_stocks.get(symbol, 0))
+                self.order_service.market_buy(symbol, int(qty_to_add))
 
     def show_stocks_df(self, msg: str, df: DataFrame):
         msg += "=======================================\n"
