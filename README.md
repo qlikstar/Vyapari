@@ -2,16 +2,16 @@
 Vyapari means trader (in Sanskrit). This is designed to be highly customizable and configurable stock trading bot that 
 runs on Alpaca and Pushover. 
 
-Future PR intend to do the following:
-- Persist the trades in a DB (Postgres/SQLite)
+This software is designed to do the following:
+- Persist the trades in a DB (MySQL)
 - Expose a set of interactive REST API interface
-- Integrate Telegram to make it customizable
-- GUI to visualize the trades
+- Integrate Telegram to send out push notifications
+- GUI to visualize the trades ( http://<IP_ADDRESS>:8000/ui/index )
 
 ## Description
 This project is highly customizable and is based on the following:
 - Alpaca
-- Pushover (to send push notifications)
+- Telegram (to send push notifications)
 
 ## Architecture
 ![Vyapari](https://user-images.githubusercontent.com/4952220/134234830-a3ecd063-53ec-4a61-8a9e-72267e6e1794.jpeg)
@@ -28,9 +28,11 @@ This project is highly customizable and is based on the following:
 - Run `docker-compose up` and you should see the server running
 - Use `docker-compose up --build` in case you modify any `.py` files
   
-## Setup Webhook for Telegram
-- Setup webhook locally: https://github.com/azimjohn/jprq-python-client
-- Expose port `8000` locally to receive Telegram requests: `jprq http 8000 -s=<subdomain>`
+## Setup Virtualenv and install dependencies
+- Create a new virtual env `virtualenv venv`
+- Activate the virtualenv `source venv/bin/activate`
+- Now install the required dependencies: `pip install -r requirements.txt`
+- Finally, run the app either using `python app.py` or `uvicorn app:app`
 
 ## Back-testing
 - Edit `backtest.py` to suit your needs
@@ -46,5 +48,3 @@ To be filled up later
 ## Note
 This is for educational purpose only. The author is not liable for any monetary loss during trading
 
-## Issues
-- Install TA-Lib on mac: https://stackoverflow.com/questions/41155985/python-ta-lib-install-problems

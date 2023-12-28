@@ -1,9 +1,9 @@
-import math
 from typing import List, Dict
 
 from alpaca.trading import TradeAccount
 from kink import di
 from pandas import DataFrame
+from scipy import stats
 
 from core.logger import logger
 from core.schedule import SafeScheduler, JobRunType
@@ -18,14 +18,16 @@ from strategies.strategy import Strategy
 '''
     Step 1: Download the top performing stocks from here:
             https://www.barchart.com/stocks/top-100-stocks?orderBy=weightedAlpha&orderDir=desc
-    Step 2: Select the top 30 for investing
-    Step 3: Replace a stock only if it does not exist in the top 50 stocks
+    Step 2: Run the Momentum strategy 
+    Step 3: Select the top 30 for investing
+    Step 4: Replace a stock only if it does not exist in the top 50 stocks
 '''
 
 MAX_STOCKS_TO_PURCHASE = 30
+TIME_PERIOD_WEIGHTS = {'1Y': 1, '1M': 3, '3M': 3, '6M': 2}
 
 
-class BarchartStrategy(Strategy):
+class BarchartMomentumStrategy(Strategy):
 
     def __init__(self):
         self.universe = di[BarchartUniverse]
@@ -64,10 +66,38 @@ class BarchartStrategy(Strategy):
     def prep_stocks(self) -> DataFrame:
         logger.info("Downloading data ...")
 
-        # Get universe of stocks
-        hqm: DataFrame = (self.universe.get_stocks_df().sort_values(by='currentRankUsTop100', ascending=True).head(51))
+        # Get universe of stocks from Barchart
+        stock_picks_today: DataFrame = (self.universe.get_stocks_df()
+                                        .sort_values(by='currentRankUsTop100', ascending=True))
+        from_barchart: List[str] = stock_picks_today['symbol'].unique()
+        from_positions: List[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
+        universe: List[str] = list(set(from_barchart + from_positions))
+
+        # Fetch stock price change data
+        hqm_base: DataFrame = self.data_service.stock_price_change(universe)
+
+        # Filter out records where '1M' price change is greater than 150%
+        hqm = hqm_base[hqm_base['1M'] <= 150]
+
+        # Calculate return percentiles with weights
+        for time_period, weight in TIME_PERIOD_WEIGHTS.items():
+            hqm[f'{time_period} Return Percentile'] = stats.percentileofscore(
+                hqm[time_period], hqm[time_period]) / 100 * weight
+
+        # Calculate weighted HQM Score
+        weighted_scores = hqm[[f'{time_period} Return Percentile' for time_period in TIME_PERIOD_WEIGHTS.keys()]]
+        hqm['HQM Score'] = weighted_scores.sum(axis=1)
+
+        # Sort by HQM Score and return the top 51 rows
+        hqm = hqm.sort_values(by='HQM Score', ascending=False).head(51)
+
         # Print the HQM stocks
         self.show_stocks_df("HQM stocks today:\n", hqm)
+
+        # Print the DataFrame
+        logger.info(hqm[['HQM Score'] + [f'{time_period} Return Percentile' for time_period in
+                                         TIME_PERIOD_WEIGHTS.keys()]])
+
         return hqm
 
     def _run_trading(self):
@@ -87,6 +117,11 @@ class BarchartStrategy(Strategy):
 
         if len(to_be_removed) > 0:
 
+            # Print the stocks to be liquidated
+            header_str = "Positions to be sold now:\n"
+            cur_df: DataFrame = self.data_service.stock_price_change(to_be_removed)
+            self.show_stocks_df(header_str, cur_df)
+
             # Liquidate the selected stocks
             for stock in to_be_removed:
                 self.notify_to_sell(held_stocks[stock])
@@ -96,7 +131,7 @@ class BarchartStrategy(Strategy):
         else:
             logger.info("No stocks to be liquidated today")
 
-        buffer: int = 5
+        buffer: int = 10
         self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
 
     def rebalance_stocks(self, symbols: list[str]):
@@ -119,29 +154,14 @@ class BarchartStrategy(Strategy):
                 logger.info("All stocks rebalanced for today")
                 break
 
-    def purchase_stocks(self, symbols: list[str]):
-        account: TradeAccount = self.account_service.get_account_details()
-        buying_power = float(account.buying_power) / int(account.multiplier)
-        position_size_per_symbol: float = buying_power / len(symbols)
-
-        for symbol in symbols:
-            qty = position_size_per_symbol / self.data_service.get_current_price(symbol)
-            self.order_service.market_buy(symbol, int(qty))
-
     def show_stocks_df(self, msg: str, df: DataFrame):
         msg += "=======================================\n"
-        msg += "Sym    Alpha   Rank  PrevRnk   Price  \n"
+        msg += "Symbol    1Y%Ch   6M%Ch   3M%Ch   1M%Ch\n"
         msg += "=======================================\n"
         for index, row in df.iterrows():
-            msg += f"{row['symbol']:<7}"
-            msg += f"{row['weightedAlpha']:>6.2f}"
-            msg += f"{row['currentRankUsTop100']:>6}"
-
-            # Check if 'previousRank' is NaN before converting
-            previous_rank = row['previousRank']
-            msg += f"{int(previous_rank) if not math.isnan(previous_rank) else 'NaN':>8}"
-
-            msg += f"{row['lastPrice']:>8.2f}"
+            msg += f"{row['symbol']:<7}  "
+            for field in TIME_PERIOD_WEIGHTS.keys():
+                msg += f"{row[field]:>6.2f}  "
             msg += "\n"
         msg += "=======================================\n"
         self.notification.notify(msg)
