@@ -17,6 +17,11 @@ from strategies.strategy import Strategy
 
 
 '''
+    Step 1: Get a list of popular stocks/ETFs
+    Step 2: Run the Momentum strategy 
+    Step 3: Select the top 30 for investing
+    Step 4: Replace a stock only if it does not exist in the top 50 stocks
+
     Inspired from: 
     https://github.com/nickmccullum/algorithmic-trading-python/blob/master/finished_files/002_quantitative_momentum_strategy.ipynb
     https://www.youtube.com/watch?v=xfzGZB4HhEE&t=9090s

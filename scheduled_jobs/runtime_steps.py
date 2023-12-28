@@ -34,6 +34,7 @@ class RuntimeSteps(object):
         pl_msg += "No. Symbol  Invest Amt  PL (USD)   PL (%)\n"
         pl_msg += "==========================================\n"
         log_msg = pl_msg
+        current_portfolio_value = float(self.broker.get_portfolio().portfolio_value)
         for count, position in enumerate(self.broker.get_positions()):
             total_unrealized_pl = total_unrealized_pl + float(position.unrealized_pl)
             log_msg += (
@@ -41,7 +42,7 @@ class RuntimeSteps(object):
                 f"{position.symbol:<7}  "
                 f"${float(position.cost_basis):>7.2f} "
                 f"{Fore.GREEN if float(position.unrealized_pl) > 0 else Fore.RED}  "
-                f"${float(position.unrealized_pl):>7.2f} "  # Fixed formatting
+                f"${float(position.unrealized_pl):>7.2f} "
                 f"{float(position.unrealized_plpc) * 100:>6.2f}%"
                 f"{Style.RESET_ALL}\n"
             )
@@ -58,6 +59,10 @@ class RuntimeSteps(object):
 
         log_msg += "Total unrealized P/L: ${:.2f}\n".format(total_unrealized_pl)
         pl_msg += "Total unrealized P/L: ${:.2f}\n".format(total_unrealized_pl)
+
+        log_msg += "Total portfolio value: ${:.2f}\n".format(current_portfolio_value)
+        pl_msg += "Total portfolio value: ${:.2f}\n".format(current_portfolio_value)
+
         print(log_msg)
         self.notification.notify(pl_msg)
 

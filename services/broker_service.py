@@ -17,7 +17,7 @@ from services.notification_service import Notification
 class Broker(abc.ABC):
 
     @abc.abstractmethod
-    def get_portfolio(self):
+    def get_portfolio(self) -> TradeAccount:
         pass
 
     @abc.abstractmethod
