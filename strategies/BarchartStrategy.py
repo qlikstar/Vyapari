@@ -99,25 +99,35 @@ class BarchartStrategy(Strategy):
         buffer: int = 5
         self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
 
-    def rebalance_stocks(self, symbols: list[str]):
-        account: TradeAccount = self.account_service.get_account_details()
-        position_size_per_symbol: float = float(account.portfolio_value) / MAX_STOCKS_TO_PURCHASE
+    def rebalance_stocks(self, symbols: List[str]):
+        account = self.account_service.get_account_details()
+        allocated_amt_per_symbol = float(account.portfolio_value) / MAX_STOCKS_TO_PURCHASE
 
-        held_stocks: Dict[str, int] = {pos.symbol: int(pos.qty) for pos in
-                                       self.position_service.get_all_positions()}
+        held_stocks = {pos.symbol: int(pos.qty) for pos in self.position_service.get_all_positions()}
+        position_count = 0
 
-        size: int = 0
-        for symbol in symbols:
-            if size < MAX_STOCKS_TO_PURCHASE:
-                qty = int(position_size_per_symbol / self.data_service.get_current_price(symbol))
+        def calculate_qty_and_buy(sym: str) -> None:
+            nonlocal position_count
+            qty = int(allocated_amt_per_symbol / self.data_service.get_current_price(sym))
+            qty_to_add = min(qty, qty - held_stocks.get(sym, 0))
+            position_count += 1
+            if qty_to_add > 0:
+                self.order_service.market_buy(sym, int(qty_to_add))
 
-                if qty > 0:
-                    size += 1
-                    qty_to_add = max(0, qty - held_stocks.get(symbol, 0))
-                    self.order_service.market_buy(symbol, int(qty_to_add))
-            else:
-                logger.info("All stocks rebalanced for today")
+        # Rebalance held stocks
+        for symbol in held_stocks:
+            if position_count >= MAX_STOCKS_TO_PURCHASE:
                 break
+            calculate_qty_and_buy(symbol)
+
+        # Rebalance selected symbols
+        for symbol in set(symbols):
+            if position_count >= MAX_STOCKS_TO_PURCHASE:
+                break
+            if symbol not in held_stocks:
+                calculate_qty_and_buy(symbol)
+
+        logger.info("All stocks rebalanced for today")
 
     def purchase_stocks(self, symbols: list[str]):
         account: TradeAccount = self.account_service.get_account_details()
