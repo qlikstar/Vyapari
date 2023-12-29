@@ -151,13 +151,13 @@ class BarchartMomentumStrategy(Strategy):
 
         # Rebalance held stocks
         for symbol in held_stocks:
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             calculate_qty_and_buy(symbol)
 
         # Rebalance selected symbols
         for symbol in set(symbols):
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             if symbol not in held_stocks:
                 calculate_qty_and_buy(symbol)

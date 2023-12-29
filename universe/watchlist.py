@@ -28,7 +28,7 @@ def get_high_vol_etfs() -> list[str]:
          'IDRV', 'IEF', 'IEMG', 'IPO', 'IWM', 'IXN', 'IYW', 'JETS', 'KOLD', 'KWEB', 'LIT', 'LQD', 'METV', 'MSOS',
          'PBD', 'PBW', 'PNQI', 'QID', 'QQQ', 'ROBT', 'SCHA', 'SDS', 'SLV', 'SMOG', 'SOXL', 'SOXS', 'SPXU', 'SPY',
          'SQQQ', 'TAN', 'TECB', 'TLT', 'TNA', 'TQQQ', 'TZA', 'UVXY', 'VEA', 'VOO', 'VTI', 'VUG', 'VWO', 'VXX', 'XLE',
-         'XLF', 'XLI', 'XLK', 'XLP', 'XLU', 'XLV'})
+         'XLF', 'XLI', 'XLK', 'XLP', 'XLU', 'XLV', 'ONEQ', 'DIA', 'VGK', 'INDA', 'BKF', 'EWA', 'EWJ', 'EWY', 'EWT'})
 
 
 def get_high_vol_stocks() -> list[str]:
