@@ -18,8 +18,9 @@ from strategies.strategy import Strategy
 '''
     Step 1: Download the top performing stocks from here:
             https://www.barchart.com/stocks/top-100-stocks?orderBy=weightedAlpha&orderDir=desc
-    Step 2: Select the top 30 for investing
-    Step 3: Replace a stock only if it does not exist in the top 50 stocks
+    Step 2: Filter out the ones that are valued at less than $20
+    Step 3: Select the top 30 for investing
+    Step 4: Replace a stock only if it does not exist in the top 50 stocks
 '''
 
 MAX_STOCKS_TO_PURCHASE = 30
@@ -97,7 +98,9 @@ class BarchartStrategy(Strategy):
             logger.info("No stocks to be liquidated today")
 
         buffer: int = 5
-        self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
+        top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
+        top_picks_final = [stock for stock in top_picks_addn if stock not in to_be_removed]
+        self.rebalance_stocks(top_picks_final)
 
     def rebalance_stocks(self, symbols: List[str]):
         account = self.account_service.get_account_details()
@@ -116,13 +119,13 @@ class BarchartStrategy(Strategy):
 
         # Rebalance held stocks
         for symbol in held_stocks:
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             calculate_qty_and_buy(symbol)
 
         # Rebalance selected symbols
         for symbol in set(symbols):
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             if symbol not in held_stocks:
                 calculate_qty_and_buy(symbol)
