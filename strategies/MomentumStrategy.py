@@ -129,12 +129,12 @@ class MomentumStrategy(Strategy):
                 del held_stocks[stock]
 
             buffer: int = 10
-            self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
+            top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
+            top_picks_final = [stock for stock in top_picks_addn if stock not in to_be_removed]
+            self.rebalance_stocks(top_picks_final)
 
         else:
             logger.info("No stocks to be liquidated today")
-
-    from typing import List
 
     def rebalance_stocks(self, symbols: List[str]):
         account = self.account_service.get_account_details()
@@ -153,13 +153,13 @@ class MomentumStrategy(Strategy):
 
         # Rebalance held stocks
         for symbol in held_stocks:
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             calculate_qty_and_buy(symbol)
 
         # Rebalance selected symbols
         for symbol in set(symbols):
-            if position_count >= MAX_STOCKS_TO_PURCHASE:
+            if position_count > MAX_STOCKS_TO_PURCHASE:
                 break
             if symbol not in held_stocks:
                 calculate_qty_and_buy(symbol)

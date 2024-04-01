@@ -132,7 +132,9 @@ class BarchartMomentumStrategy(Strategy):
             logger.info("No stocks to be liquidated today")
 
         buffer: int = 10
-        self.rebalance_stocks(top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer])
+        top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
+        top_picks_final = [stock for stock in top_picks_addn if stock not in to_be_removed]
+        self.rebalance_stocks(top_picks_final)
 
     def rebalance_stocks(self, symbols: List[str]):
         account = self.account_service.get_account_details()
