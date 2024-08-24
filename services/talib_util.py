@@ -12,6 +12,27 @@ class Trend(Enum):
 class TalibUtil:
 
     @classmethod
+    def volatility(cls, df, period=14):
+        """
+        Calculate the volatility of a stock over the last `period` days.
+
+        :param data: DataFrame containing stock price data with at least a 'Close' column.
+        :param period: The number of days over which to calculate volatility (default is 30 days).
+        :return: The calculated volatility (standard deviation of daily returns).
+        """
+        # Ensure there are enough data points
+        if len(df) < period:
+            raise ValueError(f"Not enough data to calculate volatility over the last {period} days.")
+
+        # Calculate daily returns
+        df['Daily Return'] = df['close'].pct_change()
+
+        # Calculate the volatility (standard deviation of daily returns)
+        volatility = df['Daily Return'].iloc[-period:].std()
+
+        return volatility
+
+    @classmethod
     def atr(cls, df, period=14):
         high_low = df['high'] - df['low']
         high_close = abs(df['high'] - df['close'].shift())
