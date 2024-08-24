@@ -5,6 +5,7 @@ from services.util import load_env_variables
 
 # https://github.com/spaceshipearth/pyspaceship/pull/51/files
 
+# Uses Peewee ORM
 load_env_variables()
 db = MySQLDatabase(
     os.environ.get('DB_NAME'),

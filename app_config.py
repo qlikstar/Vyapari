@@ -104,6 +104,7 @@ class AppConfig(object):
         self.order_service.close_all()
 
     def run_after_market_close(self):
+        self.post_run_steps.run_stats()
         self.post_run_steps.show_portfolio_details()
 
     def register_heartbeat(self) -> None:

@@ -1,4 +1,5 @@
-from typing import List, Dict
+import time
+from typing import Dict
 from kink import di
 from pandas import DataFrame
 from scipy import stats
@@ -12,7 +13,7 @@ from services.data_service import DataService
 from services.order_service import OrderService
 from services.position_service import PositionService, Position
 from strategies.strategy import Strategy
-
+from tabulate import tabulate
 
 '''
     Step 1: Get a list of popular stocks/ETFs
@@ -26,7 +27,7 @@ from strategies.strategy import Strategy
 '''
 
 MAX_STOCKS_TO_PURCHASE = 30
-TIME_PERIOD_WEIGHTS = {'1Y': 1, '1M': 3, '3M': 3, '6M': 2}
+TIME_PERIOD_WEIGHTS = {'6M': 3, '3M': 3, '1M': 2, '5D': -8}
 
 
 class MomentumStrategy(Strategy):
@@ -40,8 +41,8 @@ class MomentumStrategy(Strategy):
         self.schedule: SafeScheduler = di[SafeScheduler]
         self.notification: Notification = di[Notification]
 
-        self.stock_picks_today: DataFrame = None
-        self.stocks_traded_today: List[str] = []
+        self.stock_picks_today: DataFrame = DataFrame()
+        self.stocks_traded_today: list[str] = []
 
     def get_algo_name(self) -> str:
         return type(self).__name__
@@ -49,7 +50,7 @@ class MomentumStrategy(Strategy):
     def get_universe(self) -> None:
         pass
 
-    def download_data(self):
+    def download_data(self, symbols: list[str], start_date: str, end_date: str) -> DataFrame:
         pass
 
     def define_buy_sell(self, data):
@@ -57,8 +58,8 @@ class MomentumStrategy(Strategy):
 
     def init_data(self) -> None:
         self.stock_picks_today: DataFrame = self.prep_stocks()
-        logger.info("Stock picks for today")
-        logger.info(self.stock_picks_today)
+        tabled_stock_picks = tabulate(self.stock_picks_today, headers='keys', tablefmt='pretty')
+        logger.info(f"Stock picks for today:\n{tabled_stock_picks}")
         self._run_trading()
 
     # ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
@@ -69,23 +70,33 @@ class MomentumStrategy(Strategy):
         logger.info("Downloading data ...")
 
         # Get universe from the watchlist
-        from_watchlist: List[str] = self.watchlist.get_universe(2000000, 1.0)
-        from_positions: List[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
-        universe: List[str] = list(set(from_watchlist + from_positions))
+        from_watchlist: list[str] = self.watchlist.get_universe(1000000, 0.6, price_gt=10)
+        from_positions: list[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
+        universe: list[str] = sorted(list(set(from_watchlist + from_positions)))
 
         # Fetch stock price change data
         hqm_base: DataFrame = self.data_service.stock_price_change(universe)
 
-        # Filter out records where '1M' price change is greater than 150%
-        hqm = hqm_base[hqm_base['1M'] <= 150]
+        # Filter out the stocks that don't meet the below criteria
+        hqm = hqm_base[
+            (hqm_base['6M'] > hqm_base['3M']) &  # '6M' change is greater than '3M'
+            (hqm_base['3M'] >= 10) &  # '3M' change is at least 10%
+            (hqm_base['1M'] <= 150) &  # '1M' change is at most 150%
+            (hqm_base['1M'] > 5) &  # '1M' change is more than 1%
+            (hqm_base['5D'] > -25) &  # '5D' change is not less than -25%
+            (hqm_base['5D'] < 30)  # '5D' change is less than 30%
+            ]
 
         # Calculate return percentiles with weights
         for time_period, weight in TIME_PERIOD_WEIGHTS.items():
-            hqm[f'{time_period} Return Percentile'] = stats.percentileofscore(
+            hqm[f'{time_period} Ret. %ile'] = stats.percentileofscore(
                 hqm[time_period], hqm[time_period]) / 100 * weight
 
+            # Format the values to two decimal places
+            hqm[f'{time_period} Ret. %ile'] = hqm[f'{time_period} Ret. %ile'].apply(lambda x: f'{x:.2f}')
+
         # Calculate weighted HQM Score
-        weighted_scores = hqm[[f'{time_period} Return Percentile' for time_period in TIME_PERIOD_WEIGHTS.keys()]]
+        weighted_scores = hqm[[f'{time_period} Ret. %ile' for time_period in TIME_PERIOD_WEIGHTS.keys()]]
         hqm['HQM Score'] = weighted_scores.sum(axis=1)
 
         # Sort by HQM Score and return the top 51 rows
@@ -95,48 +106,48 @@ class MomentumStrategy(Strategy):
         self.show_stocks_df("HQM stocks today:\n", hqm)
 
         # Print the DataFrame
-        logger.info(hqm[['HQM Score'] + [f'{time_period} Return Percentile' for time_period in
+        logger.info(hqm[['HQM Score'] + [f'{time_period} Ret. %ile' for time_period in
                                          TIME_PERIOD_WEIGHTS.keys()]])
 
         return hqm
 
     def _run_trading(self):
         if not self.order_service.is_market_open():
-            logger.warning("Market is not open !")
+            logger.warning("Market is not open!")
             return
 
         held_stocks: Dict[str, Position] = {pos.symbol: pos for pos in self.position_service.get_all_positions()}
-        # Extract unique values from the 'symbol' column while preserving order
         top_picks_today = self.stock_picks_today['symbol'].unique()
 
-        # Fetch the previously held stocks if they don't come in the top 50 stocks
-        to_be_removed = []
-        for held_stock in held_stocks.keys():
-            if held_stock not in top_picks_today:
-                to_be_removed.append(held_stock)
+        # Identify stocks to be sold
+        to_be_removed = [held_stock for held_stock in held_stocks if held_stock not in top_picks_today]
 
-        if len(to_be_removed) > 0:
-
+        if to_be_removed:
             # Print the stocks to be liquidated
-            header_str = "Positions to be sold now:\n"
+            header_str = "Positions to be liquidated now:\n"
             cur_df: DataFrame = self.data_service.stock_price_change(to_be_removed)
             self.show_stocks_df(header_str, cur_df)
 
             # Liquidate the selected stocks
             for stock in to_be_removed:
-                self.notify_to_sell(held_stocks[stock])
+                self.notify_to_liquidate(held_stocks[stock])
                 self.order_service.market_sell(stock, int(held_stocks[stock].qty))
                 del held_stocks[stock]
 
-            buffer: int = 10
-            top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
-            top_picks_final = [stock for stock in top_picks_addn if stock not in to_be_removed]
-            self.rebalance_stocks(top_picks_final)
-
+            time.sleep(10)  # Allow sufficient time for the stocks to liquidate
+            logger.info("Above stocks have been liquidated")
         else:
             logger.info("No stocks to be liquidated today")
 
-    def rebalance_stocks(self, symbols: List[str]):
+        account = self.account_service.get_account_details()
+        logger.info(f"Current Balance: ${account.buying_power}")
+
+        buffer: int = 10
+        top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
+        top_picks_final = [stock for stock in top_picks_addn if stock not in to_be_removed]
+        self.rebalance_stocks(top_picks_final)
+
+    def rebalance_stocks(self, symbols: list[str]):
         account = self.account_service.get_account_details()
         allocated_amt_per_symbol = float(account.portfolio_value) / MAX_STOCKS_TO_PURCHASE
 
@@ -145,30 +156,36 @@ class MomentumStrategy(Strategy):
 
         def calculate_qty_and_buy(sym: str) -> None:
             nonlocal position_count
-            qty = int(allocated_amt_per_symbol / self.data_service.get_current_price(sym))
-            qty_to_add = min(qty, qty - held_stocks.get(sym, 0))
-            position_count += 1
+            if position_count >= MAX_STOCKS_TO_PURCHASE:
+                return
+
+            current_price = self.data_service.get_current_price(sym)
+            qty = int(allocated_amt_per_symbol / current_price)
+            current_qty = held_stocks.get(sym, 0)
+            qty_to_add = qty - current_qty
+
             if qty_to_add > 0:
                 self.order_service.market_buy(sym, int(qty_to_add))
+                position_count += 1
+                held_stocks[sym] = current_qty + qty_to_add
+                time.sleep(3)  # Allow sufficient time to purchase
 
-        # Rebalance held stocks
+        # Re-balance held stocks
         for symbol in held_stocks:
-            if position_count > MAX_STOCKS_TO_PURCHASE:
-                break
+            logger.info(f"Balancing for HELD symbol: {symbol}")
             calculate_qty_and_buy(symbol)
 
-        # Rebalance selected symbols
+        # Re-balance selected symbols
         for symbol in set(symbols):
-            if position_count > MAX_STOCKS_TO_PURCHASE:
-                break
             if symbol not in held_stocks:
+                logger.info(f"Balancing for NEW symbol: {symbol}")
                 calculate_qty_and_buy(symbol)
 
         logger.info("All stocks rebalanced for today")
 
     def show_stocks_df(self, msg: str, df: DataFrame):
         msg += "=======================================\n"
-        msg += "Symbol    1Y%Ch   6M%Ch   3M%Ch   1M%Ch\n"
+        msg += "Symbol    6M%Ch   3M%Ch   1M%Ch   5D%Ch\n"
         msg += "=======================================\n"
         for index, row in df.iterrows():
             msg += f"{row['symbol']:<7}  "
@@ -178,9 +195,8 @@ class MomentumStrategy(Strategy):
         msg += "=======================================\n"
         self.notification.notify(msg)
 
-    def notify_to_sell(self, position: Position):
-        msg = f"Selling {position.qty} of {position.symbol} at a total ${position.market_value} \n"
-
+    def notify_to_liquidate(self, position: Position):
+        msg = f"Selling {position.qty} of {position.symbol} at a total ${float(position.market_value):.2f}\n"
         if float(position.unrealized_pl) > 0:
             msg += f"at a PROFIT of {float(position.unrealized_pl):.2f} ({float(position.unrealized_plpc):.2f}%)"
         else:

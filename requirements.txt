@@ -78,6 +78,7 @@ sphinxcontrib-serializinghtml==1.1.9
 SQLAlchemy==1.4.50
 sseclient-py==1.8.0
 starlette==0.27.0
+tabulate
 tornado==6.3.3
 typing_extensions==4.8.0
 tzdata==2023.3

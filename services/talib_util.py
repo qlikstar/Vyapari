@@ -12,6 +12,22 @@ class Trend(Enum):
 class TalibUtil:
 
     @classmethod
+    def atr(cls, df, period=14):
+        high_low = df['high'] - df['low']
+        high_close = abs(df['high'] - df['close'].shift())
+        low_close = abs(df['low'] - df['close'].shift())
+
+        # Calculate the True Range (TR)
+        true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        # Calculate the ATR
+        atr = true_range.rolling(window=period).mean()
+
+        # Add ATR to the DataFrame
+        atr_df = df.copy()
+        atr_df['ATR'] = atr
+        return atr_df
+
+    @classmethod
     def vwap(cls, df):
         vol = df['volume'].values
         tp = (df['low'] + df['close'] + df['high']).div(3).values
