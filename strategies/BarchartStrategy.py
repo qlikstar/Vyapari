@@ -54,8 +54,7 @@ class BarchartStrategy(Strategy):
 
     def init_data(self) -> None:
         self.stock_picks_today: DataFrame = self.prep_stocks()
-        logger.info("Stock picks for today")
-        logger.info(self.stock_picks_today)
+        logger.info("Stock picks for today \n {self.stock_picks_today}")
         self._run_trading()
 
     # ''' Since this is a strict LONG TERM strategy, run it every 24 hrs '''
@@ -73,27 +72,21 @@ class BarchartStrategy(Strategy):
 
     def _run_trading(self):
         if not self.order_service.is_market_open():
-            logger.warning("Market is not open !")
+            logger.warning("Market is not open!")
             return
 
         held_stocks: Dict[str, Position] = {pos.symbol: pos for pos in self.position_service.get_all_positions()}
-        # Extract unique values from the 'symbol' column while preserving order
         top_picks_today = self.stock_picks_today['symbol'].unique()
 
-        # Fetch the previously held stocks if they don't come in the top 50 stocks
-        to_be_removed = []
-        for held_stock in held_stocks.keys():
-            if held_stock not in top_picks_today:
-                to_be_removed.append(held_stock)
+        # Identify stocks to be sold
+        to_be_removed = [held_stock for held_stock in held_stocks if held_stock not in top_picks_today]
 
-        if len(to_be_removed) > 0:
-
+        if to_be_removed:
             # Liquidate the selected stocks
             for stock in to_be_removed:
                 self.notify_to_sell(held_stocks[stock])
                 self.order_service.market_sell(stock, int(held_stocks[stock].qty))
                 del held_stocks[stock]
-
         else:
             logger.info("No stocks to be liquidated today")
 
@@ -111,28 +104,31 @@ class BarchartStrategy(Strategy):
 
         def calculate_qty_and_buy(sym: str) -> None:
             nonlocal position_count
-            qty = int(allocated_amt_per_symbol / self.data_service.get_current_price(sym))
-            qty_to_add = min(qty, qty - held_stocks.get(sym, 0))
-            position_count += 1
+            if position_count >= MAX_STOCKS_TO_PURCHASE:
+                return
+
+            current_price = self.data_service.get_current_price(sym)
+            qty = int(allocated_amt_per_symbol / current_price)
+            current_qty = held_stocks.get(sym, 0)
+            qty_to_add = qty - current_qty
+
             if qty_to_add > 0:
                 self.order_service.market_buy(sym, int(qty_to_add))
+                position_count += 1
+                held_stocks[sym] = current_qty + qty_to_add
 
         # Rebalance held stocks
         for symbol in held_stocks:
-            if position_count > MAX_STOCKS_TO_PURCHASE:
-                break
             calculate_qty_and_buy(symbol)
 
         # Rebalance selected symbols
         for symbol in set(symbols):
-            if position_count > MAX_STOCKS_TO_PURCHASE:
-                break
             if symbol not in held_stocks:
                 calculate_qty_and_buy(symbol)
 
         logger.info("All stocks rebalanced for today")
 
-    def purchase_stocks(self, symbols: list[str]):
+    def purchase_stocks(self, symbols: List[str]):
         account: TradeAccount = self.account_service.get_account_details()
         buying_power = float(account.buying_power) / int(account.multiplier)
         position_size_per_symbol: float = buying_power / len(symbols)
@@ -160,7 +156,7 @@ class BarchartStrategy(Strategy):
         self.notification.notify(msg)
 
     def notify_to_sell(self, position: Position):
-        msg = f"Selling {position.qty} of {position.symbol} at a total ${position.market_value} \n"
+        msg = f"Selling {position.qty} of {position.symbol} at a total ${position.market_value:.2f}\n"
 
         if float(position.unrealized_pl) > 0:
             msg += f"at a PROFIT of {float(position.unrealized_pl):.2f} ({float(position.unrealized_plpc):.2f}%)"

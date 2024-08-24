@@ -1,3 +1,4 @@
+import concurrent.futures
 import time
 from enum import Enum
 from typing import List
@@ -45,27 +46,34 @@ class DataService(object):
     0   AAPL -0.7004  0.04213  ...   335.21191    915.88235  147909.34944
     1   NVDA -1.9295 -3.11486  ...  1148.71929  12213.40206  116381.37312
     '''
+
     def stock_price_change(self, symbols: List[str]) -> DataFrame:
         retry_count = 5
         dfs = []
 
-        for sym in symbols:
+        def fetch_price_change(sym):
             result = None
             for attempt in range(1, retry_count + 1):
                 result = self.api.stock_price_change(sym)
                 if isinstance(result, DataFrame) and not result.empty:
                     logger.info(result)
-                    dfs.append(result)
-                    break  # Break out of the retry loop if result is not None
+                    return result  # Return the result directly
                 else:
                     logger.warning(
                         f"Attempt {attempt}/{retry_count} for {sym} returned None. Retrying..."
                     )
-                    # Add a delay between retries
                     time.sleep(1)  # 1-second delay
-
             if isinstance(result, DataFrame) and result.empty:
                 logger.warning(f"API call for {sym} returned None after {retry_count} attempts.")
+            return None  # Return None if all retries fail
+
+        # Use ThreadPoolExecutor to fetch data in parallel. Limit to 2 threads as we see a lot of 429s
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_to_symbol = {executor.submit(fetch_price_change, sym): sym for sym in symbols}
+            for future in concurrent.futures.as_completed(future_to_symbol):
+                result = future.result()
+                if result is not None:
+                    dfs.append(result)
 
         if len(dfs) > 0:
             return concat(dfs, ignore_index=True)
@@ -77,9 +85,9 @@ class DataService(object):
 
     def screen_stocks(self, market_cap_lt: int = None, market_cap_gt: int = None, price_lt: int = None,
                       price_gt: int = None, beta_lt: float = None, beta_gt: float = None, volume_lt: int = None,
-                      volume_gt: int = None, is_etf: bool = None, limit: int = 1000) -> DataFrame:
+                      volume_gt: int = None, is_etf: bool = None) -> DataFrame:
         # (volume_gt=100000, price_gt=20, price_lt=500, beta_gt=0.3, limit=5000)
         return self.api.get_stock_screener(market_cap_lt=market_cap_lt, market_cap_gt=market_cap_gt,
                                            volume_lt=volume_lt, volume_gt=volume_gt, price_lt=price_lt,
                                            price_gt=price_gt, is_etf=is_etf, beta_lt=beta_lt,
-                                           beta_gt=beta_gt, exchange=['NYSE', 'NASDAQ', 'AMEX'], limit=limit)
+                                           beta_gt=beta_gt, exchange=['NYSE', 'NASDAQ', 'AMEX'])

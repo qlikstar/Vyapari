@@ -139,3 +139,4 @@ dmypy.json
 /db/mysql/*
 /data/*
 /ignored/
+/logs/app.log.*
