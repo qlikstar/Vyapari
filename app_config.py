@@ -116,11 +116,11 @@ class AppConfig(object):
             (START_TRADING, self.runtime_steps.run, Frequency.MIN_30.value, MARKET_CLOSE),
             (BEFORE_MARKET_OPEN, self.init_run),
             (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING),
-            # (STOP_TRADING, self.app_config.run_before_market_close),
+            # (STOP_TRADING, self.app_config.run_before_market_close), # Needed for day trading
             (MARKET_CLOSE, self.run_after_market_close),
         ]
 
-        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        weekdays = ['monday']  # 'tuesday', 'wednesday', 'thursday', 'friday'
         for day in weekdays:
             for time, func, *args in weekday_jobs:
                 getattr(self.schedule.every(), day).at(time).do(func, *args).tag(JobRunType.STANDARD)

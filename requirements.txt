@@ -16,6 +16,7 @@ click==8.1.7
 colorama==0.4.6
 contourpy==1.2.0
 coverage==7.3.2
+cryptography
 cycler==0.12.1
 docutils==0.18.1
 fastapi==0.104.1
