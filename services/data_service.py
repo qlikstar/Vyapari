@@ -56,7 +56,7 @@ class DataService(object):
             for attempt in range(1, retry_count + 1):
                 result = self.api.stock_price_change(sym)
                 if isinstance(result, DataFrame) and not result.empty:
-                    logger.info(result)
+                    logger.info(f'Price change for {sym}:\n{result}')
                     return result  # Return the result directly
                 else:
                     logger.warning(

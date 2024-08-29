@@ -72,7 +72,7 @@ class SteadyMomentumStrategy(Strategy):
         logger.info("Downloading data ...")
 
         # Get universe from the watchlist
-        from_watchlist: list[str] = self.watchlist.get_universe(300000000, price_gt=10, volume_gt=500000)
+        from_watchlist: list[str] = self.watchlist.get_universe(500000000, price_gt=10, volume_gt=500000)
         from_positions: list[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
         universe: list[str] = sorted(list(set(from_watchlist + from_positions)))
 
@@ -81,7 +81,7 @@ class SteadyMomentumStrategy(Strategy):
 
         # Filter out the stocks that don't meet the below criteria
         hqm = hqm_base[
-            (hqm_base['6M'] > hqm_base['3M']) &  # '6M' change is greater than '3M'
+            (hqm_base['1Y'] > hqm_base['3M']) &  # '1Y' change is greater than '3M'
             (hqm_base['3M'] >= 10) &  # '3M' change is at least 10%
             (hqm_base['6M'] >= 30)  # '6M' change is at least 30%
             ]
@@ -109,7 +109,6 @@ class SteadyMomentumStrategy(Strategy):
 
             # Step 3: Calculate Exponential Moving Average (EMA)
             data['EMA_30'] = data['close'].ewm(span=30, adjust=False).mean()
-            data['EMA_10'] = data['close'].ewm(span=10, adjust=False).mean()
 
             # Step 4: Calculate the slope using linear regression
             recent_data = data[-50:]
@@ -169,7 +168,7 @@ class SteadyMomentumStrategy(Strategy):
         filtered_results['Rank'] = filtered_results['Below EMA Count'].rank(method='first', ascending=True)
 
         # Return all the stocks according to the strategy
-        return filtered_results[:50]
+        return filtered_results
 
     def _run_trading(self):
         if not self.order_service.is_market_open():
@@ -177,7 +176,7 @@ class SteadyMomentumStrategy(Strategy):
             return
 
         held_stocks: Dict[str, Position] = {pos.symbol: pos for pos in self.position_service.get_all_positions()}
-        top_picks_today = self.stock_picks_today['Symbol'].unique()
+        top_picks_today = self.stock_picks_today['Symbol'].unique()[:50]
 
         # Identify stocks to be sold
         to_be_removed = [held_stock for held_stock in held_stocks if held_stock not in top_picks_today]
