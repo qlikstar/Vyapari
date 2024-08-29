@@ -56,8 +56,12 @@ class AppConfig(object):
 
     def start(self):
         logger.info("Scheduling jobs... ")
+        self._schedule_rebalance_job()
         self._schedule_weekday_jobs()
         self._schedule_run_now_jobs()
+
+        logger.info("***** --- All Jobs have been scheduled --- *****")
+        [logger.info(s) for s in self.get_all_schedules()]
 
         while True:
             self.schedule.run_pending()
@@ -91,14 +95,15 @@ class AppConfig(object):
 
     def initialize_and_run_once(self, sleep_next_x_seconds, until_time):
         self.init_run()
-        self.runtime_steps.run(sleep_next_x_seconds, until_time)
+        # self.runtime_steps.run(sleep_next_x_seconds, until_time) # Not needed for long term
         self.strategy.run(sleep_next_x_seconds, until_time)
         return schedule.CancelJob  # Runs once and kills itself
 
     def init_run(self):
         logger.info(f"Initializing trader ... Running strategy: {self.strategy_name}")
         self.pre_run_steps.show_configuration()
-        self.strategy.init_data()
+        self.strategy.init_data()  # This runs trading as well
+        self.post_run_steps.run_stats()
 
     def run_before_market_close(self):
         self.order_service.close_all()
@@ -111,22 +116,31 @@ class AppConfig(object):
         self.database.ping()
         logger.info(f"Registering heartbeat ... ")
 
-    def _schedule_weekday_jobs(self):
-        weekday_jobs = [
-            (START_TRADING, self.runtime_steps.run, Frequency.MIN_30.value, MARKET_CLOSE),
+    def _schedule_rebalance_job(self):
+        # Define the job that should run once in many days to rebalance
+        rebalance_job = [
             (BEFORE_MARKET_OPEN, self.init_run),
-            (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING),
+        ]
+
+        # Schedule portfolio rebalance job
+        for time, func, *args in rebalance_job:
+            self.schedule.every().monday.at(time).do(func, *args).tag(JobRunType.STANDARD)  # Weekly: Monday
+            # self.schedule.every(1).month.at(time).do(func, *args).tag(JobRunType.STANDARD) # Monthly
+
+    def _schedule_weekday_jobs(self):
+
+        # Define the jobs to run on all weekdays (Monday to Friday)
+        weekday_jobs = [
+            # (START_TRADING, self.runtime_steps.run, Frequency.HOURLY.value, MARKET_CLOSE),
+            # (START_TRADING, self.strategy.run, Frequency.MIN_10.value, STOP_TRADING), # Not needed for long term
             # (STOP_TRADING, self.app_config.run_before_market_close), # Needed for day trading
             (MARKET_CLOSE, self.run_after_market_close),
         ]
-
-        weekdays = ['monday']  # 'tuesday', 'wednesday', 'thursday', 'friday'
+        # Schedule jobs for all weekdays
+        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         for day in weekdays:
             for time, func, *args in weekday_jobs:
                 getattr(self.schedule.every(), day).at(time).do(func, *args).tag(JobRunType.STANDARD)
-
-        logger.info("***** --- Weekday Jobs have been scheduled --- *****")
-        [logger.info(s) for s in self.get_all_schedules()]
 
     '''
     Runs only if "ADHOC_RUN" is True or if the service is restarted during an ongoing trading window

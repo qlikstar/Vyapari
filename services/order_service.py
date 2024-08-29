@@ -84,6 +84,28 @@ class OrderService(object):
         else:
             logger.info(f"{side} Order could not be placed ...Market is NOT open.. !")
 
+    def place_limit_order(self, symbol: str, side: str, qty: int, limit_price: float) -> List[OrderEntity]:
+        logger.info("Placing limit order to {}: {} shares of {}".format(side, qty, symbol))
+        if self.is_market_open():
+            order_data: OrderRequest = OrderRequest(symbol=symbol, qty=qty, side=side,
+                                                    type=OrderType.LIMIT,
+                                                    time_in_force=TimeInForce.GTC,
+                                                    limit_price=limit_price
+                                                    )
+
+            try:
+                order: Order = self.api.submit_order(order_data)
+                logger.info(f"Limit order to {side}: {qty} shares of {symbol} placed @ {limit_price}")
+                return self._save_order(order)
+            except APIError as api_error:
+                self.notification.err_notify(f"Bracket order to {side}: {qty} shares of {symbol} "
+                                             f"could not be placed: {api_error}")
+            except Exception as ex:
+                logger.error(f"Error while placing bracket order: {ex}")
+
+        else:
+            logger.info(f"Order to {side} could not be placed ...Market is NOT open.. !")
+
     def place_bracket_order(self, symbol: str, side: str, qty: int,
                             stop_loss: float, take_profit: float) -> List[OrderEntity]:
         logger.info("Placing bracket order to {}: {} shares of {}".format(side, qty, symbol))

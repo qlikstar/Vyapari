@@ -10,9 +10,9 @@ class WatchList(object):
     def __init__(self):
         self.data_service: DataService = di[DataService]
 
-    def get_universe(self, volume_gt: int, beta_gt: float, price_gt=20, price_lt=1000) -> list[str]:
-        all_stocks_df = self.data_service.screen_stocks(volume_gt=volume_gt, price_gt=price_gt, price_lt=price_lt,
-                                                        beta_gt=beta_gt)
+    def get_universe(self, market_cap_gt: int, beta_gt=0.5, price_gt=20, price_lt=1000, volume_gt=None) -> list[str]:
+        all_stocks_df = self.data_service.screen_stocks(market_cap_gt=market_cap_gt, beta_gt=beta_gt,
+                                                        price_gt=price_gt, price_lt=price_lt, volume_gt=volume_gt)
         all_stocks = all_stocks_df['symbol'].tolist()
         all_stocks.extend(get_high_vol_etfs())
         all_stocks.extend(get_high_vol_stocks())
