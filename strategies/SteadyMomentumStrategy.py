@@ -72,7 +72,7 @@ class SteadyMomentumStrategy(Strategy):
         logger.info("Downloading data ...")
 
         # Get universe from the watchlist
-        from_watchlist: list[str] = self.watchlist.get_universe(500000000, price_gt=10, volume_gt=500000)
+        from_watchlist: list[str] = self.watchlist.get_universe(1-000-000-000, price_gt=20, volume_gt=10000)
         from_positions: list[str] = [pos.symbol for pos in self.position_service.get_all_positions()]
         universe: list[str] = sorted(list(set(from_watchlist + from_positions)))
 
@@ -92,7 +92,8 @@ class SteadyMomentumStrategy(Strategy):
     def _calculate_stock_momentum(self, hqm: DataFrame) -> DataFrame:
         results = []
         thresholds = [0.8, 0.7, 0.6, 0.5]  # Percentage of up days
-        spike_threshold = 0.20  # 20% price increase considered a spike
+        spike_threshold = 0.20  # 20% price increase/decrease considered a spike
+        drawdown_threshold = 0.20 # 20%
 
         for symbol in hqm['symbol']:
             # Fetch daily OHLCV data
@@ -101,16 +102,27 @@ class SteadyMomentumStrategy(Strategy):
             # Step 1: Calculate daily percentage changes
             data['pct_change'] = data['close'].pct_change()
 
-            # Step 2: Check for sudden price spikes in the last 10 days
+            # Calculate the rolling maximum of the closing price over the last 30 days
+            data['rolling_max'] = data['close'].rolling(window=30, min_periods=1).max()
+            # Calculate the drawdown as the percentage decline from the rolling maximum
+            data['drawdown'] = (data['close'] - data['rolling_max']) / data['rolling_max']
+            print(f"{symbol} had a max drawdown of {data['drawdown'].min() * 100} in the last 30 days")
+
+            # Step 2: Check if the drawdown in last 30 days > drawdown threshold
+            if any(data['drawdown'] < -drawdown_threshold):
+                print(f"Excluding {symbol} due to a drawdown of {drawdown_threshold*100} or more in the last 30 days")
+                continue  # Skip this stock if a significant drawdown is detected
+
+            # Step 3: Check for sudden price spikes in the last 10 days
             recent_data = data[-10:]  # Get the last 10 days of data
             if any(recent_data['pct_change'].abs() > spike_threshold):
                 print(f"Excluding {symbol} due to sudden price spike in the last 10 days")
                 continue  # Skip this stock if a spike is detected in the last 10 days
 
-            # Step 3: Calculate Exponential Moving Average (EMA)
+            # Step 4: Calculate Exponential Moving Average (EMA)
             data['EMA_30'] = data['close'].ewm(span=30, adjust=False).mean()
 
-            # Step 4: Calculate the slope using linear regression
+            # Step 5: Calculate the slope using linear regression
             recent_data = data[-50:]
             x = np.array(range(len(recent_data))).reshape(-1, 1)
             y = recent_data['close'].values
@@ -120,7 +132,7 @@ class SteadyMomentumStrategy(Strategy):
             model.fit(x, y)
             slope = model.coef_[0]
 
-            # Step 4: Check the slope and steadiness
+            # Step 6: Check the slope and steadiness
             is_steady_uptrend = slope > 0
             up_days = np.sum(recent_data['close'].diff() > 0)
             steady_percent = up_days / len(recent_data)
@@ -155,7 +167,8 @@ class SteadyMomentumStrategy(Strategy):
         # Filter the symbols that have a steady uptrend and meet any of the thresholds
         filtered_results = results_df[
                 (results_df['Steady Uptrend']) &
-                (results_df['Steady Threshold Met'].notnull())
+                (results_df['Steady Threshold Met'].notnull()) &
+                (results_df['Below EMA Count'] <= 5)
             ]
 
         # Sort by 'Below EMA Count' in ascending order, then by 'Slope' in descending order
@@ -180,6 +193,7 @@ class SteadyMomentumStrategy(Strategy):
 
         # Identify stocks to be sold
         to_be_removed = [held_stock for held_stock in held_stocks if held_stock not in top_picks_today]
+        logger.info(f"Stocks to be liquidated: {to_be_removed}")
 
         if to_be_removed:
             # Liquidate the selected stocks
@@ -199,6 +213,8 @@ class SteadyMomentumStrategy(Strategy):
         buffer: int = 10
         top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
         top_picks_final = [stock for stock in top_picks_addn if stock not in held_stocks]
+
+        logger.info(f"{len(top_picks_final)} Stocks to hold: {top_picks_final}")
         self.rebalance_stocks(top_picks_final)
 
     def rebalance_stocks(self, symbols: list[str]):
@@ -230,6 +246,7 @@ class SteadyMomentumStrategy(Strategy):
             calculate_qty_and_buy(symbol)
 
         # Re-balance selected symbols
+        logger.info(f"{len(symbols)} Remaining symbols: {symbols}")
         for symbol in set(symbols):
             if symbol not in held_stocks:
                 logger.info(f"Balancing for NEW symbol: {symbol}")
