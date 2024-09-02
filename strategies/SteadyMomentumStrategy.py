@@ -184,7 +184,7 @@ class SteadyMomentumStrategy(Strategy):
         return filtered_results
 
     def _run_trading(self):
-        if not self.order_service.is_market_open():
+        if not self.order_service.is_market_open(check_local=False):
             logger.warning("Market is not open!")
             return
 
@@ -207,11 +207,11 @@ class SteadyMomentumStrategy(Strategy):
         else:
             logger.info("No stocks to be liquidated today")
 
+        # Needed after liquidation, as the portfolio might hold fewer stocks than MAX_STOCKS_TO_PURCHASE.
         account = self.account_service.get_account_details()
         logger.info(f"Current Balance: ${account.buying_power}")
 
-        buffer: int = 10
-        top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE + buffer]
+        top_picks_addn = top_picks_today[:MAX_STOCKS_TO_PURCHASE]
         top_picks_final = [stock for stock in top_picks_addn if stock not in held_stocks]
 
         logger.info(f"{len(top_picks_final)} Stocks to hold: {top_picks_final}")

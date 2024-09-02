@@ -8,7 +8,7 @@ import pytz
 from alpaca.common import APIError
 from alpaca.trading.client import TradingClient
 from alpaca.trading import Order, OrderRequest, OrderSide, OrderType, TimeInForce, OrderClass, TakeProfitRequest, \
-    StopLossRequest, Position, TrailingStopOrderRequest, MarketOrderRequest
+    StopLossRequest, Position, TrailingStopOrderRequest, MarketOrderRequest, Clock
 from kink import inject, di
 
 from core.broker import AlpacaBroker
@@ -52,11 +52,14 @@ class OrderService(object):
     def is_shortable(self, symbol: str) -> bool:
         return self.api.get_asset(symbol).shortable
 
-    @staticmethod
-    def is_market_open() -> bool:
-        now = datetime.today()
-        military_time_now = (now.hour * 100) + now.minute
-        return now.weekday() < 5 and 630 <= military_time_now < 1300
+    def is_market_open(self, check_local=True) -> bool:
+        if check_local:
+            now = datetime.today()
+            military_time_now = (now.hour * 100) + now.minute
+            return now.weekday() < 5 and 630 <= military_time_now < 1300
+        else:
+            clock: Clock = self.api.get_clock()
+            return clock.is_open
 
     def market_buy(self, symbol: str, qty: int):
         return self._place_market_order(symbol, qty, OrderSide.BUY)
@@ -244,9 +247,11 @@ class OrderService(object):
         hwm = self._check_float(order.hwm)
         limit_price = self._check_float(order.limit_price)
 
-        self.db.create_order(str(order.id), str(parent_order_id), order.symbol, order.side, order_qty, order.time_in_force,
+        self.db.create_order(str(order.id), str(parent_order_id), order.symbol, order.side, order_qty,
+                             order.time_in_force,
                              order.order_class, order.type, trail_percent, trail_price, stop_price, stop_price,
-                             filled_avg_price, filled_qty, hwm, limit_price, str(order.replaced_by), order.extended_hours,
+                             filled_avg_price, filled_qty, hwm, limit_price, str(order.replaced_by),
+                             order.extended_hours,
                              order.status, self._pst(order.failed_at), self._pst(order.filled_at),
                              self._pst(order.canceled_at), self._pst(order.expired_at), self._pst(order.replaced_at),
                              self._pst(order.submitted_at), self._pst(order.created_at), self._pst(order.updated_at))
@@ -262,7 +267,8 @@ class OrderService(object):
                 hwm = self._check_float(leg.hwm)
                 limit_price = self._check_float(leg.limit_price)
 
-                self.db.create_order(str(leg.id), str(parent_order_id), leg.symbol, leg.side, order_qty, leg.time_in_force,
+                self.db.create_order(str(leg.id), str(parent_order_id), leg.symbol, leg.side, order_qty,
+                                     leg.time_in_force,
                                      leg.order_class, leg.type, trail_percent, trail_price, stop_price, stop_price,
                                      filled_avg_price, filled_qty, hwm, limit_price, str(leg.replaced_by),
                                      leg.extended_hours, leg.status, self._pst(leg.failed_at), self._pst(leg.filled_at),
